@@ -62,15 +62,21 @@ jobs:
     - name: Configure CMake
       shell: msys2 {0}
       run: |
+        export PATH=/mingw64/bin:$PATH
         mkdir build
         cd build
-        cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/mingw64
+        cmake .. \
+          -G "MSYS Makefiles" \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_PREFIX_PATH=/mingw64 \
+          -DCMAKE_C_COMPILER=/mingw64/bin/gcc.exe \
+          -DCMAKE_CXX_COMPILER=/mingw64/bin/g++.exe
     
     - name: Build
       shell: msys2 {0}
       run: |
         cd build
-        cmake --build . --config Release -j4
+        make -j4
     
     - name: Package Windows
       shell: msys2 {0}
