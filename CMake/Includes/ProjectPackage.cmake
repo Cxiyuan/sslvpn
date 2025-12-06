@@ -49,7 +49,7 @@ if(WIN32 AND MINGW)
     )
 
     # NSIS'es list of all components
-    set(CPACK_COMPONENTS_ALL App App_Console vpnc_script TAP_drivers VcRedist_libs)
+    set(CPACK_COMPONENTS_ALL App App_Console vpnc_script TAP_drivers)
 
     set(CPACK_COMPONENT_APP_REQUIRED on)
     set(CPACK_COMPONENT_APP_DISPLAY_NAME "GUI")
@@ -83,9 +83,7 @@ if(WIN32 AND MINGW)
     set(CPACK_COMPONENT_APP_CONSOLE_GROUP "Application")
     set(CPACK_COMPONENT_APP_CONSOLE_INSTALL_TYPES Full)
 
-    # custom install command to populate vcredist & NDIS drivers
-    # vcredis: http://asawicki.info/news_1597_installing_visual_c_redistributable_package_from_command_line.html
-    list(APPEND CPACK_NSIS_EXTRA_INSTALL_COMMANDS " ExecWait '\\\"$INSTDIR\\\\Drivers\\\\vcredist_x86.exe\\\" /install /quiet /norestart'")
+    # custom install command to populate NDIS drivers
     list(APPEND CPACK_NSIS_EXTRA_INSTALL_COMMANDS " ExecWait '\\\"$INSTDIR\\\\Drivers\\\\tap-windows.exe\\\" /S /norestart'")
     string(REPLACE ";" "\n" CPACK_NSIS_EXTRA_INSTALL_COMMANDS "${CPACK_NSIS_EXTRA_INSTALL_COMMANDS}")
 
