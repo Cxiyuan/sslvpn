@@ -41,10 +41,19 @@ jobs:
     - name: Build and Install OpenConnect
       shell: msys2 {0}
       run: |
+        # Download vpnc-script
+        curl -o /tmp/vpnc-script https://gitlab.com/openconnect/vpnc-scripts/-/raw/master/vpnc-script
+        chmod +x /tmp/vpnc-script
+        
+        # Clone and build OpenConnect
         git clone https://gitlab.com/openconnect/openconnect.git
         cd openconnect
         ./autogen.sh
-        ./configure --prefix=/mingw64 --disable-nls --without-gnutls-version-check
+        ./configure \
+          --prefix=/mingw64 \
+          --disable-nls \
+          --without-gnutls-version-check \
+          --with-vpnc-script=/tmp/vpnc-script
         make -j4
         make install
     
