@@ -45,7 +45,7 @@ jobs:
         cd spdlog
         git checkout v1.3.1
         mkdir build && cd build
-        cmake .. -G "MSYS Makefiles" -DCMAKE_INSTALL_PREFIX=/mingw64
+        cmake .. -G "MSYS Makefiles" -DCMAKE_INSTALL_PREFIX=/mingw64 -DCMAKE_POLICY_VERSION_MINIMUM=3.5
         make -j4 install
     
     - name: Build and Install OpenConnect
