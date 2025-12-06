@@ -31,6 +31,11 @@ jobs:
           mingw-w64-x86_64-qt5-tools
           mingw-w64-x86_64-qt5-svg
           mingw-w64-x86_64-pkgconf
+          mingw-w64-x86_64-libxml2
+          mingw-w64-x86_64-zlib
+          autoconf
+          automake
+          libtool
           git
     
     - name: Build and Install OpenConnect
@@ -39,7 +44,7 @@ jobs:
         git clone https://gitlab.com/openconnect/openconnect.git
         cd openconnect
         ./autogen.sh
-        ./configure --prefix=/mingw64 --disable-nls
+        ./configure --prefix=/mingw64 --disable-nls --without-gnutls-version-check
         make -j4
         make install
     
