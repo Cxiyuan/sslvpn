@@ -52,6 +52,7 @@ jobs:
         ./configure \
           --prefix=/mingw64 \
           --disable-nls \
+          --disable-dependency-tracking \
           --without-gnutls-version-check \
           --with-vpnc-script=/tmp/vpnc-script
         make -j4
