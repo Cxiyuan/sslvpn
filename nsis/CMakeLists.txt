@@ -1,4 +1,5 @@
-install(FILES vcredist_x86.exe
-    DESTINATION Drivers
-    COMPONENT VcRedist_libs
-)
+# VcRedist component removed - Git LFS file not available in CI
+# install(FILES vcredist_x86.exe
+#     DESTINATION Drivers
+#     COMPONENT VcRedist_libs
+# )
