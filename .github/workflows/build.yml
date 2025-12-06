@@ -25,7 +25,6 @@ jobs:
           mingw-w64-x86_64-gcc
           mingw-w64-x86_64-cmake
           mingw-w64-x86_64-gnutls
-          mingw-w64-x86_64-spdlog
           mingw-w64-x86_64-qt5-base
           mingw-w64-x86_64-qt5-tools
           mingw-w64-x86_64-qt5-svg
@@ -39,14 +38,22 @@ jobs:
           make
           git
     
+    - name: Build and Install spdlog
+      shell: msys2 {0}
+      run: |
+        git clone https://github.com/gabime/spdlog.git
+        cd spdlog
+        git checkout v1.3.1
+        mkdir build && cd build
+        cmake .. -G "MSYS Makefiles" -DCMAKE_INSTALL_PREFIX=/mingw64
+        make -j4 install
+    
     - name: Build and Install OpenConnect
       shell: msys2 {0}
       run: |
-        # Download vpnc-script
         curl -o /tmp/vpnc-script https://gitlab.com/openconnect/vpnc-scripts/-/raw/master/vpnc-script
         chmod +x /tmp/vpnc-script
         
-        # Clone and build OpenConnect
         git clone https://gitlab.com/openconnect/openconnect.git
         cd openconnect
         ./autogen.sh
@@ -71,21 +78,21 @@ jobs:
           -DCMAKE_PREFIX_PATH=/mingw64 \
           -DCMAKE_C_COMPILER=/mingw64/bin/gcc.exe \
           -DCMAKE_CXX_COMPILER=/mingw64/bin/g++.exe \
-          -DPROJ_INI_SETTINGS=ON
+          -DPROJ_INI_SETTINGS=ON \
+          -DCMAKE_DISABLE_FIND_PACKAGE_OpenConnect=OFF
     
-    - name: Build
+    - name: Build aVPN
       shell: msys2 {0}
       run: |
         cd build
-        make -j4 || make
+        make avpn -j4
     
     - name: Package Windows
       shell: msys2 {0}
       run: |
         cd build/src
-        # Copy necessary DLLs
         ldd avpn.exe | grep mingw64 | awk '{print $3}' | xargs -I {} cp {} . || true
-        ls -la
+        ls -la avpn.exe
     
     - name: Upload Windows Artifact
       uses: actions/upload-artifact@v4
