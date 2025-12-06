@@ -91,8 +91,15 @@ jobs:
       shell: msys2 {0}
       run: |
         cd build/src
-        ldd avpn.exe | grep mingw64 | awk '{print $3}' | xargs -I {} cp {} . || true
-        ls -la avpn.exe
+        ls -la
+        if [ -f avpn.exe ]; then
+          ldd avpn.exe | grep mingw64 | awk '{print $3}' | xargs -I {} cp {} . || true
+          ls -la avpn.exe
+        else
+          echo "avpn.exe not found, checking build directory structure..."
+          find ../.. -name "avpn.exe" -o -name "avpn"
+          exit 1
+        fi
     
     - name: Upload Windows Artifact
       uses: actions/upload-artifact@v4
