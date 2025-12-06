@@ -94,16 +94,29 @@ jobs:
       run: |
         cd build
         
-        # Copy all required MinGW64 DLLs to bin directory
-        cd bin
-        ldd avpn.exe | grep mingw64 | awk '{print $3}' | xargs -I {} cp -v {} .
+        # Install to staging directory first
+        make install DESTDIR=_install
         
-        # Also copy standard MinGW runtime DLLs
+        # Copy all required MinGW64 DLLs to install directory
+        cd _install
+        INSTALL_DIR=$(find . -name "avpn.exe" -exec dirname {} \;)
+        cd "$INSTALL_DIR"
+        
+        echo "Copying DLLs to $PWD"
+        ldd avpn.exe | grep mingw64 | awk '{print $3}' | while read dll; do
+          cp -v "$dll" . || true
+        done
+        
+        # Ensure runtime DLLs are present
         cp -v /mingw64/bin/libgcc_s_seh-1.dll . || true
         cp -v /mingw64/bin/libstdc++-6.dll . || true
         cp -v /mingw64/bin/libwinpthread-1.dll . || true
         
-        cd ..
+        # Copy Qt platform plugin DLLs
+        mkdir -p plugins/platforms
+        cp -v /mingw64/share/qt5/plugins/platforms/qwindows.dll plugins/platforms/ || true
+        
+        cd ../../..
         make package
     
     - name: Package Windows
