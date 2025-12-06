@@ -92,31 +92,66 @@ jobs:
     - name: Create Windows Installer
       shell: msys2 {0}
       run: |
-        cd build
+        cd build/bin
         
-        # Install to staging directory first
-        make install DESTDIR=_install
-        
-        # Copy all required MinGW64 DLLs to install directory
-        cd _install
-        INSTALL_DIR=$(find . -name "avpn.exe" -exec dirname {} \;)
-        cd "$INSTALL_DIR"
-        
-        echo "Copying DLLs to $PWD"
+        echo "=== Copying all MinGW64 DLLs ==="
         ldd avpn.exe | grep mingw64 | awk '{print $3}' | while read dll; do
+          echo "Copying: $dll"
           cp -v "$dll" . || true
         done
         
-        # Ensure runtime DLLs are present
+        echo "=== Ensuring critical runtime DLLs ==="
         cp -v /mingw64/bin/libgcc_s_seh-1.dll . || true
         cp -v /mingw64/bin/libstdc++-6.dll . || true
         cp -v /mingw64/bin/libwinpthread-1.dll . || true
         
-        # Copy Qt platform plugin DLLs
+        echo "=== Copying Qt DLLs ==="
+        cp -v /mingw64/bin/Qt5Core.dll . || true
+        cp -v /mingw64/bin/Qt5Gui.dll . || true
+        cp -v /mingw64/bin/Qt5Widgets.dll . || true
+        cp -v /mingw64/bin/Qt5Network.dll . || true
+        cp -v /mingw64/bin/Qt5Svg.dll . || true
+        
+        echo "=== Copying other dependencies ==="
+        cp -v /mingw64/bin/libgnutls-30.dll . || true
+        cp -v /mingw64/bin/libopenconnect-5.dll . || true
+        cp -v /mingw64/bin/libxml2-2.dll . || true
+        cp -v /mingw64/bin/zlib1.dll . || true
+        cp -v /mingw64/bin/libp11-kit-0.dll . || true
+        cp -v /mingw64/bin/libnettle-*.dll . || true
+        cp -v /mingw64/bin/libhogweed-*.dll . || true
+        cp -v /mingw64/bin/libgmp-*.dll . || true
+        cp -v /mingw64/bin/libiconv-*.dll . || true
+        cp -v /mingw64/bin/liblzma-*.dll . || true
+        cp -v /mingw64/bin/libffi-*.dll . || true
+        cp -v /mingw64/bin/libbrotlidec.dll . || true
+        cp -v /mingw64/bin/libbrotlicommon.dll . || true
+        cp -v /mingw64/bin/libpcre2-16-0.dll . || true
+        cp -v /mingw64/bin/libzstd.dll . || true
+        cp -v /mingw64/bin/libdouble-conversion.dll . || true
+        cp -v /mingw64/bin/libicuin*.dll . || true
+        cp -v /mingw64/bin/libicuuc*.dll . || true
+        cp -v /mingw64/bin/libicudt*.dll . || true
+        cp -v /mingw64/bin/libharfbuzz-0.dll . || true
+        cp -v /mingw64/bin/libfreetype-6.dll . || true
+        cp -v /mingw64/bin/libpng16-16.dll . || true
+        cp -v /mingw64/bin/libbz2-1.dll . || true
+        cp -v /mingw64/bin/libglib-2.0-0.dll . || true
+        cp -v /mingw64/bin/libgraphite2.dll . || true
+        cp -v /mingw64/bin/libintl-8.dll . || true
+        cp -v /mingw64/bin/libpcre2-8-0.dll . || true
+        
+        echo "=== Creating Qt plugins directory ==="
         mkdir -p plugins/platforms
         cp -v /mingw64/share/qt5/plugins/platforms/qwindows.dll plugins/platforms/ || true
         
-        cd ../../..
+        mkdir -p plugins/styles
+        cp -v /mingw64/share/qt5/plugins/styles/*.dll plugins/styles/ || true
+        
+        echo "=== Final DLL list in bin directory ==="
+        ls -la *.dll
+        
+        cd ../..
         make package
     
     - name: Package Windows
