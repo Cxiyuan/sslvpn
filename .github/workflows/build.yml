@@ -217,11 +217,6 @@ jobs:
       run: |
         cd build
         
-        # Download linuxdeploy
-        wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-        wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
-        chmod +x linuxdeploy*.AppImage
-        
         # Find the executable
         if [ -f src/avpn ]; then
           AVPN_EXE=src/avpn
@@ -229,6 +224,7 @@ jobs:
           AVPN_EXE=bin/avpn
         else
           echo "Error: Cannot find avpn executable"
+          find . -name "avpn" -type f
           exit 1
         fi
         
@@ -236,55 +232,76 @@ jobs:
         ls -lh $AVPN_EXE
         ldd $AVPN_EXE
         
-        # Create AppDir
-        export APPDIR=$PWD/AppDir
-        mkdir -p $APPDIR/usr/bin
-        mkdir -p $APPDIR/usr/share/applications
-        mkdir -p $APPDIR/usr/share/icons/hicolor/256x256/apps
+        # Create simple package with all dependencies
+        mkdir -p package/bin
+        mkdir -p package/lib
         
         # Copy executable
-        cp $AVPN_EXE $APPDIR/usr/bin/avpn
+        cp -v $AVPN_EXE package/bin/avpn
+        chmod +x package/bin/avpn
         
-        # Create desktop file
-        cat > $APPDIR/usr/share/applications/avpn.desktop << 'DESKTOPEOF'
-        [Desktop Entry]
-        Type=Application
-        Name=aVPN
-        Exec=avpn
-        Icon=avpn
-        Categories=Network;
-        DESKTOPEOF
+        # Copy all Qt libraries
+        echo "=== Copying Qt libraries ==="
+        for qtlib in Qt5Core Qt5Gui Qt5Widgets Qt5Network Qt5Svg Qt5DBus; do
+          find /usr/lib -name "lib${qtlib}.so*" -exec cp -v {} package/lib/ \; 2>/dev/null || true
+        done
         
-        # Create icon (placeholder)
-        touch $APPDIR/usr/share/icons/hicolor/256x256/apps/avpn.png
+        # Copy other dependencies
+        echo "=== Copying dependencies ==="
+        ldd $AVPN_EXE | grep "=>" | awk '{print $3}' | while read lib; do
+          if [ -n "$lib" ] && [ -f "$lib" ]; then
+            # Copy non-system libraries
+            case "$lib" in
+              /lib/x86_64-linux-gnu/*|/lib64/*|/usr/lib/x86_64-linux-gnu/libc.so*|/usr/lib/x86_64-linux-gnu/libm.so*|/usr/lib/x86_64-linux-gnu/libpthread.so*|/usr/lib/x86_64-linux-gnu/libdl.so*)
+                # Skip basic system libraries
+                ;;
+              *)
+                echo "Copying: $lib"
+                cp -v "$lib" package/lib/ 2>/dev/null || true
+                ;;
+            esac
+          fi
+        done
         
-        # Run linuxdeploy
-        export QT_SELECT=qt5
-        export QML_SOURCES_PATHS=/dev/null
-        ./linuxdeploy-x86_64.AppImage --appdir $APPDIR --plugin qt --output appimage || {
-          echo "=== AppImage creation failed, creating manual package ==="
-          
-          # Manual packaging
-          cd $APPDIR
-          tar -czf ../avpn-linux-x64.tar.gz .
-          cd ..
-        }
+        # Copy Qt plugins
+        echo "=== Copying Qt plugins ==="
+        mkdir -p package/plugins/platforms
+        mkdir -p package/plugins/platformthemes
+        cp -v /usr/lib/x86_64-linux-gnu/qt5/plugins/platforms/libqxcb.so package/plugins/platforms/ 2>/dev/null || true
+        cp -v /usr/lib/x86_64-linux-gnu/qt5/plugins/platformthemes/libqgtk*.so package/plugins/platformthemes/ 2>/dev/null || true
         
-        # Check results
-        ls -lh *.tar.gz *.AppImage 2>/dev/null || true
+        # Create launch script
+        cat > package/avpn.sh << 'LAUNCHEOF'
+        #!/bin/bash
+        DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        export LD_LIBRARY_PATH="${DIR}/lib:${LD_LIBRARY_PATH}"
+        export QT_PLUGIN_PATH="${DIR}/plugins"
+        export QT_QPA_PLATFORM_PLUGIN_PATH="${DIR}/plugins/platforms"
+        exec "${DIR}/bin/avpn" "$@"
+        LAUNCHEOF
+        chmod +x package/avpn.sh
         
-        # If AppImage was created, rename it
-        if [ -f *.AppImage ]; then
-          mv *.AppImage avpn-linux-x64.AppImage
-        fi
+        # Create README
+        cat > package/README.txt << 'READMEEOF'
+        aVPN for Linux
+        
+        To run: ./avpn.sh
+        Or install to /opt: sudo cp -r . /opt/avpn && sudo ln -s /opt/avpn/avpn.sh /usr/local/bin/avpn
+        READMEEOF
+        
+        echo "=== Package contents ==="
+        du -sh package
+        find package -type f | head -20
+        
+        # Create tar.gz
+        tar -czf avpn-linux-x64.tar.gz -C package .
+        ls -lh avpn-linux-x64.tar.gz
     
     - name: Upload Linux Artifact
       uses: actions/upload-artifact@v4
       with:
         name: avpn-linux-x64
-        path: |
-          build/avpn-linux-x64.tar.gz
-          build/avpn-linux-x64.AppImage
+        path: build/avpn-linux-x64.tar.gz
         retention-days: 7
 
   build-macos:
@@ -328,34 +345,45 @@ jobs:
     
     - name: Create App Bundle
       run: |
+        cd build
+        
         echo "=== Locating .app bundle ==="
-        APP_PATH=$(find build -name "*.app" -type d | head -1)
+        find . -name "*.app" -type d
+        
+        APP_PATH=$(find . -name "*.app" -type d | head -1)
         
         if [ -z "$APP_PATH" ]; then
           echo "Error: Cannot find .app bundle"
-          find build -type f -name "aVPN" -o -name "avpn"
+          find . -type f -name "aVPN" -o -name "avpn"
           exit 1
         fi
         
         echo "Found app bundle at: $APP_PATH"
-        ls -lh "$APP_PATH/Contents/MacOS/"
+        ls -lah "$APP_PATH/Contents/MacOS/"
         
-        # Get app name
-        APP_NAME=$(basename "$APP_PATH")
+        # Get directory containing the .app
         APP_DIR=$(dirname "$APP_PATH")
+        APP_NAME=$(basename "$APP_PATH")
+        
+        echo "=== App bundle structure ==="
+        find "$APP_PATH" -type f | head -10
         
         cd "$APP_DIR"
         
-        # Run macdeployqt to bundle all dependencies
-        echo "=== Running macdeployqt ==="
-        $(brew --prefix qt@5)/bin/macdeployqt "$APP_NAME" -verbose=2
+        # First run macdeployqt to bundle dependencies
+        echo "=== Running macdeployqt to bundle dependencies ==="
+        $(brew --prefix qt@5)/bin/macdeployqt "$APP_NAME" -verbose=3
+        
+        echo "=== Checking bundled frameworks ==="
+        ls -lh "$APP_NAME/Contents/Frameworks/" || true
+        du -sh "$APP_NAME"
         
         # Create DMG
         echo "=== Creating DMG ==="
-        $(brew --prefix qt@5)/bin/macdeployqt "$APP_NAME" -dmg
+        hdiutil create -volname "aVPN" -srcfolder "$APP_NAME" -ov -format UDZO "${APP_NAME%.app}.dmg"
         
-        DMG_NAME="${APP_NAME%.app}.dmg"
-        ls -lh "$DMG_NAME"
+        ls -lh *.dmg
+        file *.dmg
     
     - name: Upload macOS Artifact
       uses: actions/upload-artifact@v4
@@ -387,5 +415,5 @@ jobs:
         prerelease: false
         files: |
           avpn-windows-installer/avpn-*.exe
-          avpn-linux-x64/avpn-linux-x64.*
+          avpn-linux-x64/avpn-linux-x64.tar.gz
           avpn-macos-x64/*.dmg
