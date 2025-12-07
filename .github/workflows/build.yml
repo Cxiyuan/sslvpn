@@ -208,19 +208,62 @@ jobs:
       run: |
         cd build
         make -j$(nproc)
+        
+        echo "=== Checking built executable ==="
+        ls -lh src/avpn || ls -lh bin/avpn || true
+        ldd src/avpn || ldd bin/avpn || true
     
     - name: Create Linux Package
       run: |
         cd build
-        make install DESTDIR=AppDir
         
-        echo "=== Checking installed files ==="
-        find AppDir -type f
+        # Find the executable
+        if [ -f src/avpn ]; then
+          AVPN_PATH=src/avpn
+        elif [ -f bin/avpn ]; then
+          AVPN_PATH=bin/avpn
+        else
+          echo "Error: Cannot find avpn executable"
+          exit 1
+        fi
+        
+        echo "=== Creating AppDir structure ==="
+        mkdir -p AppDir/usr/bin
+        mkdir -p AppDir/usr/lib
+        
+        # Copy executable
+        cp $AVPN_PATH AppDir/usr/bin/avpn
+        
+        # Copy all shared library dependencies
+        echo "=== Copying shared libraries ==="
+        ldd $AVPN_PATH | grep "=> /" | awk '{print $3}' | while read lib; do
+          if [[ $lib == /lib/* ]] || [[ $lib == /usr/lib/* ]]; then
+            # Skip system libraries
+            continue
+          fi
+          cp -v "$lib" AppDir/usr/lib/ || true
+        done
+        
+        # Copy Qt plugins
+        echo "=== Copying Qt plugins ==="
+        mkdir -p AppDir/usr/plugins/platforms
+        cp -v /usr/lib/x86_64-linux-gnu/qt5/plugins/platforms/libqxcb.so AppDir/usr/plugins/platforms/ || true
+        
+        # Create wrapper script
+        cat > AppDir/usr/bin/avpn-wrapper.sh << 'EOF'
+#!/bin/bash
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export LD_LIBRARY_PATH="$DIR/lib:$LD_LIBRARY_PATH"
+export QT_PLUGIN_PATH="$DIR/plugins"
+exec "$DIR/bin/avpn" "$@"
+EOF
+        chmod +x AppDir/usr/bin/avpn-wrapper.sh
+        
+        echo "=== Package contents ==="
+        find AppDir -type f -exec ls -lh {} \;
         
         # Create tar.gz package
-        cd AppDir
-        tar -czf ../avpn-linux-x64.tar.gz .
-        cd ..
+        tar -czf avpn-linux-x64.tar.gz -C AppDir .
         ls -lh avpn-linux-x64.tar.gz
     
     - name: Upload Linux Artifact
@@ -264,36 +307,47 @@ jobs:
           ls -la external/lib/ 2>/dev/null || true
           exit 1
         }
+        
+        echo "=== Checking build result ==="
+        find . -name "*.app" -o -name "aVPN" -o -name "avpn" | grep -v autogen
+        ls -lh bin/ || ls -lh src/ || true
     
     - name: Create App Bundle
       run: |
-        echo "=== Checking build output ==="
-        find build -name "*.app" -o -name "avpn" -o -name "aVPN" 2>/dev/null || true
-        ls -la build/src/ || true
-        ls -la build/bin/ || true
+        echo "=== Locating .app bundle ==="
+        APP_PATH=$(find build -name "*.app" -type d | head -1)
         
-        if [ -d "build/bin/aVPN.app" ]; then
-          echo "=== Found aVPN.app in bin directory ==="
-          cd build/bin
-          $(brew --prefix qt@5)/bin/macdeployqt aVPN.app -dmg
-          ls -lh aVPN.dmg
-        elif [ -d "build/src/avpn.app" ]; then
-          echo "=== Found avpn.app in src directory ==="
-          cd build/src
-          $(brew --prefix qt@5)/bin/macdeployqt avpn.app -dmg
-          ls -lh avpn.dmg
-        else
+        if [ -z "$APP_PATH" ]; then
           echo "Error: Cannot find .app bundle"
+          find build -type f -name "aVPN" -o -name "avpn"
           exit 1
         fi
+        
+        echo "Found app bundle at: $APP_PATH"
+        ls -lh "$APP_PATH/Contents/MacOS/"
+        
+        # Get app name
+        APP_NAME=$(basename "$APP_PATH")
+        APP_DIR=$(dirname "$APP_PATH")
+        
+        cd "$APP_DIR"
+        
+        # Run macdeployqt to bundle all dependencies
+        echo "=== Running macdeployqt ==="
+        $(brew --prefix qt@5)/bin/macdeployqt "$APP_NAME" -verbose=2
+        
+        # Create DMG
+        echo "=== Creating DMG ==="
+        $(brew --prefix qt@5)/bin/macdeployqt "$APP_NAME" -dmg
+        
+        DMG_NAME="${APP_NAME%.app}.dmg"
+        ls -lh "$DMG_NAME"
     
     - name: Upload macOS Artifact
       uses: actions/upload-artifact@v4
       with:
         name: avpn-macos-x64
-        path: |
-          build/bin/aVPN.dmg
-          build/src/avpn.dmg
+        path: build/**/*.dmg
         retention-days: 7
 
   release:
