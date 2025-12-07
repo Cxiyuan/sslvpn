@@ -109,9 +109,14 @@ static int process_auth_form(void* privdata, struct oc_auth_form* form)
                 vpn->ss->get_groupname().toLatin1().data());
         } else {
             {
+                QString translatedLabel = QLatin1String(select_opt->form.label);
+                if (translatedLabel.contains("group", Qt::CaseInsensitive)) {
+                    translatedLabel = QObject::tr("组");
+                }
+                
                 MyInputDialog dialog(vpn->m,
                     QLatin1String(select_opt->form.name),
-                    QLatin1String(select_opt->form.label),
+                    translatedLabel,
                     ditems);
                 dialog.show();
                 ok = dialog.result(text);
@@ -158,8 +163,13 @@ static int process_auth_form(void* privdata, struct oc_auth_form* form)
             }
 
             {
+                QString translatedLabel = QLatin1String(opt->label);
+                if (QString(opt->name).contains("group", Qt::CaseInsensitive)) {
+                    translatedLabel = QObject::tr("组");
+                }
+                
                 MyInputDialog dialog(vpn->m, QLatin1String(opt->name),
-                    QLatin1String(opt->label), items);
+                    translatedLabel, items);
                 dialog.show();
                 ok = dialog.result(text);
             }
@@ -186,8 +196,13 @@ static int process_auth_form(void* privdata, struct oc_auth_form* form)
             }
 
             do {
+                QString translatedLabel = QLatin1String(opt->label);
+                if (strcasecmp(opt->name, "username") == 0) {
+                    translatedLabel = QObject::tr("用户名");
+                }
+                
                 MyInputDialog dialog(vpn->m, QLatin1String(opt->name),
-                    QLatin1String(opt->label),
+                    translatedLabel,
                     QLineEdit::Normal);
                 dialog.show();
                 ok = dialog.result(text);
@@ -216,8 +231,13 @@ static int process_auth_form(void* privdata, struct oc_auth_form* form)
             }
 
             do {
+                QString translatedLabel = QLatin1String(opt->label);
+                if (strcasecmp(opt->name, "password") == 0) {
+                    translatedLabel = QObject::tr("密码");
+                }
+                
                 MyInputDialog dialog(vpn->m, QLatin1String(opt->name),
-                    QLatin1String(opt->label),
+                    translatedLabel,
                     QLineEdit::Password);
                 dialog.show();
                 ok = dialog.result(text);
