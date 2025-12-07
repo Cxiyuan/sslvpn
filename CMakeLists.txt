@@ -14,7 +14,7 @@ project(avpn
 message(STATUS "Building ${PROJECT_NAME} v${PROJECT_VERSION} [cmake]")
 
 set(PRODUCT_NAME_SHORT "aVPN")
-set(PRODUCT_NAME_LONG "aVPN VPN client")
+set(PRODUCT_NAME_LONG "aVPN")
 set(PRODUCT_NAME_COMPANY "aVPN Team")
 set(PRODUCT_NAME_COMPANY_DOMAIN "avpn.local")
 set(PRODUCT_NAME_COPYRIGHT_SHORT "Copyright (C) 2016-2019 aVPN Team")
