@@ -251,7 +251,14 @@ jobs:
     - name: Build
       run: |
         cd build
-        make -j$(sysctl -n hw.ncpu)
+        make -j$(sysctl -n hw.ncpu) VERBOSE=1 2>&1 | tee build.log || {
+          echo "=== Build failed, showing last 100 lines ==="
+          tail -100 build.log
+          echo "=== Checking spdlog files ==="
+          find external -name "libspdlog*" 2>/dev/null || true
+          ls -la external/lib/ 2>/dev/null || true
+          exit 1
+        }
     
     - name: Create App Bundle
       run: |
