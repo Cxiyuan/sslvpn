@@ -330,18 +330,18 @@ jobs:
     - name: Build
       run: |
         cd build
-        make -j$(sysctl -n hw.ncpu) VERBOSE=1 2>&1 | tee build.log || {
-          echo "=== Build failed, showing last 100 lines ==="
-          tail -100 build.log
-          echo "=== Checking spdlog files ==="
-          find external -name "libspdlog*" 2>/dev/null || true
-          ls -la external/lib/ 2>/dev/null || true
-          exit 1
-        }
+        make -j$(sysctl -n hw.ncpu) 2>&1 | tee build.log
         
-        echo "=== Checking build result ==="
-        find . -name "*.app" -o -name "aVPN" -o -name "avpn" | grep -v autogen
-        ls -lh bin/ || ls -lh src/ || true
+        echo "=== Build completed, checking result ==="
+        find . -name "*.app" -type d
+        find . -name "aVPN" -o -name "avpn" | grep -v autogen
+        
+        # Check if executable exists in .app bundle
+        APP_PATH=$(find . -name "*.app" -type d | head -1)
+        if [ -n "$APP_PATH" ]; then
+          echo "=== Checking app bundle structure ==="
+          ls -lR "$APP_PATH"
+        fi
     
     - name: Create App Bundle
       run: |
