@@ -217,60 +217,74 @@ jobs:
       run: |
         cd build
         
+        # Download linuxdeploy
+        wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+        wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+        chmod +x linuxdeploy*.AppImage
+        
         # Find the executable
         if [ -f src/avpn ]; then
-          AVPN_PATH=src/avpn
+          AVPN_EXE=src/avpn
         elif [ -f bin/avpn ]; then
-          AVPN_PATH=bin/avpn
+          AVPN_EXE=bin/avpn
         else
           echo "Error: Cannot find avpn executable"
           exit 1
         fi
         
-        echo "=== Creating AppDir structure ==="
-        mkdir -p AppDir/usr/bin
-        mkdir -p AppDir/usr/lib
+        echo "=== Executable info ==="
+        ls -lh $AVPN_EXE
+        ldd $AVPN_EXE
+        
+        # Create AppDir
+        export APPDIR=$PWD/AppDir
+        mkdir -p $APPDIR/usr/bin
+        mkdir -p $APPDIR/usr/share/applications
+        mkdir -p $APPDIR/usr/share/icons/hicolor/256x256/apps
         
         # Copy executable
-        cp $AVPN_PATH AppDir/usr/bin/avpn
+        cp $AVPN_EXE $APPDIR/usr/bin/avpn
         
-        # Copy all shared library dependencies
-        echo "=== Copying shared libraries ==="
-        ldd $AVPN_PATH | grep "=> /" | awk '{print $3}' | while read lib; do
-          if [[ $lib == /lib/* ]] || [[ $lib == /usr/lib/* ]]; then
-            # Skip system libraries
-            continue
-          fi
-          cp -v "$lib" AppDir/usr/lib/ || true
-        done
+        # Create desktop file
+        cat > $APPDIR/usr/share/applications/avpn.desktop << EOF
+[Desktop Entry]
+Type=Application
+Name=aVPN
+Exec=avpn
+Icon=avpn
+Categories=Network;
+EOF
         
-        # Copy Qt plugins
-        echo "=== Copying Qt plugins ==="
-        mkdir -p AppDir/usr/plugins/platforms
-        cp -v /usr/lib/x86_64-linux-gnu/qt5/plugins/platforms/libqxcb.so AppDir/usr/plugins/platforms/ || true
+        # Create icon (placeholder)
+        touch $APPDIR/usr/share/icons/hicolor/256x256/apps/avpn.png
         
-        # Create wrapper script
-        cat > AppDir/usr/bin/avpn-wrapper.sh << 'EOFSCRIPT'
-        #!/bin/bash
-        DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-        export LD_LIBRARY_PATH="$DIR/lib:$LD_LIBRARY_PATH"
-        export QT_PLUGIN_PATH="$DIR/plugins"
-        exec "$DIR/bin/avpn" "$@"
-        EOFSCRIPT
-        chmod +x AppDir/usr/bin/avpn-wrapper.sh
+        # Run linuxdeploy
+        export QT_SELECT=qt5
+        export QML_SOURCES_PATHS=/dev/null
+        ./linuxdeploy-x86_64.AppImage --appdir $APPDIR --plugin qt --output appimage || {
+          echo "=== AppImage creation failed, creating manual package ==="
+          
+          # Manual packaging
+          cd $APPDIR
+          tar -czf ../avpn-linux-x64.tar.gz .
+          cd ..
+        }
         
-        echo "=== Package contents ==="
-        find AppDir -type f -exec ls -lh {} \;
+        # Check results
+        ls -lh *.tar.gz *.AppImage 2>/dev/null || true
         
-        # Create tar.gz package
-        tar -czf avpn-linux-x64.tar.gz -C AppDir .
-        ls -lh avpn-linux-x64.tar.gz
+        # If AppImage was created, rename it
+        if [ -f *.AppImage ]; then
+          mv *.AppImage avpn-linux-x64.AppImage
+        fi
     
     - name: Upload Linux Artifact
       uses: actions/upload-artifact@v4
       with:
         name: avpn-linux-x64
-        path: build/avpn-linux-x64.tar.gz
+        path: |
+          build/avpn-linux-x64.tar.gz
+          build/avpn-linux-x64.AppImage
         retention-days: 7
 
   build-macos:
@@ -373,5 +387,5 @@ jobs:
         prerelease: false
         files: |
           avpn-windows-installer/avpn-*.exe
-          avpn-linux-x64/avpn-linux-x64.tar.gz
+          avpn-linux-x64/avpn-linux-x64.*
           avpn-macos-x64/*.dmg
