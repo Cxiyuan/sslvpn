@@ -175,9 +175,18 @@ jobs:
       with:
         submodules: recursive
     
-    - name: Install Dependencies
+    - name: Convert Windows Icon to Linux PNG
       run: |
         sudo apt-get update
+        sudo apt-get install -y imagemagick
+        
+        echo "=== Converting Windows ICO to Linux PNG ==="
+        convert src/avpn.ico[0] -resize 300x300 src/Resources/mono_lock.png
+        ls -lh src/Resources/mono_lock.png
+        file src/Resources/mono_lock.png
+    
+    - name: Install Dependencies
+      run: |
         sudo apt-get install -y \
           cmake \
           build-essential \
@@ -311,6 +320,41 @@ jobs:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
+    
+    - name: Convert Windows Icon to macOS ICNS
+      run: |
+        echo "=== Converting Windows ICO to macOS ICNS ==="
+        
+        # 安装 ImageMagick 和 libicns
+        brew install imagemagick libicns
+        
+        # 创建 iconset 目录
+        mkdir -p src/Resources/mono_lock.iconset
+        
+        # 从 ICO 提取主图标并生成各种尺寸
+        for size in 16 32 128 256 512; do
+          echo "Generating ${size}x${size}..."
+          convert src/avpn.ico[0] -resize ${size}x${size} src/Resources/mono_lock.iconset/icon_${size}x${size}.png
+          
+          # 生成 @2x 版本（除了 512 之外）
+          if [ $size -lt 512 ]; then
+            size2x=$((size * 2))
+            convert src/avpn.ico[0] -resize ${size2x}x${size2x} src/Resources/mono_lock.iconset/icon_${size}x${size}@2x.png
+          fi
+        done
+        
+        # 生成 1024x1024 for 512x512@2x
+        convert src/avpn.ico[0] -resize 1024x1024 src/Resources/mono_lock.iconset/icon_512x512@2x.png
+        
+        # 使用 iconutil 生成 .icns 文件
+        iconutil -c icns src/Resources/mono_lock.iconset -o src/Resources/mono_lock.icns
+        
+        echo "=== Generated ICNS file ==="
+        ls -lh src/Resources/mono_lock.icns
+        file src/Resources/mono_lock.icns
+        
+        # 清理 iconset 目录
+        rm -rf src/Resources/mono_lock.iconset
     
     - name: Install Dependencies
       run: |
@@ -477,29 +521,3 @@ jobs:
         name: avpn-macos-x64
         path: build/**/*.dmg
         retention-days: 7
-
-  release:
-    needs: [build-windows, build-linux, build-macos]
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-    permissions:
-      contents: write
-    
-    steps:
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-    
-    - name: Display structure of downloaded files
-      run: ls -R
-    
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: v1.5.3-${{ github.run_number }}
-        name: aVPN v1.5.3 Build ${{ github.run_number }}
-        draft: false
-        prerelease: false
-        files: |
-          avpn-windows-installer/avpn-*.exe
-          avpn-linux-x64/avpn-linux-x64.tar.gz
-          avpn-macos-x64/*.dmg
