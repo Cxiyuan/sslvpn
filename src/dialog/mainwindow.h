@@ -93,10 +93,10 @@ public slots:
     void on_actionEditSelectedProfile_triggered();
     void on_actionRemoveSelectedProfile_triggered();
 
-    void on_sdwanEnableCheckbox_toggled(bool checked);
-    void on_sdwanAutoStartCheckbox_toggled(bool checked);
-    void on_nodeLicenseImportButton_clicked();
-    void on_sdwanStartButton_clicked();
+    void sdwanEnableToggled(bool checked);
+    void sdwanAutoStartToggled(bool checked);
+    void nodeLicenseImport();
+    void sdwanStartClicked();
 
 signals:
     void stats_changed_sig(QString, QString, QString);

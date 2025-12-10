@@ -81,13 +81,13 @@ MainWindow::MainWindow(QWidget* parent, const QString profileName)
         this, &MainWindow::createLogDialog);
 
     connect(ui->sdwanEnableCheckbox, &QCheckBox::toggled,
-        this, &MainWindow::on_sdwanEnableCheckbox_toggled);
+        this, &MainWindow::sdwanEnableToggled);
     connect(ui->sdwanAutoStartCheckbox, &QCheckBox::toggled,
-        this, &MainWindow::on_sdwanAutoStartCheckbox_toggled);
+        this, &MainWindow::sdwanAutoStartToggled);
     connect(ui->nodeLicenseImportButton, &QPushButton::clicked,
-        this, &MainWindow::on_nodeLicenseImportButton_clicked);
+        this, &MainWindow::nodeLicenseImport);
     connect(ui->sdwanStartButton, &QPushButton::clicked,
-        this, &MainWindow::on_sdwanStartButton_clicked);
+        this, &MainWindow::sdwanStartClicked);
 
     timer = new QTimer(this);
     blink_timer = new QTimer(this);
@@ -880,7 +880,7 @@ void MainWindow::readSettings()
     if (sdwanEnabled && sdwanAutoStart && !networkId.isEmpty()) {
         QTimer::singleShot(1000, this, [this]() {
             Logger::instance().addMessage(tr("SD-WAN 自启动..."));
-            on_sdwanStartButton_clicked();
+            sdwanStartClicked();
         });
     }
 }
@@ -1044,7 +1044,7 @@ void MainWindow::on_actionRemoveSelectedProfile_triggered()
     }
 }
 
-void MainWindow::on_sdwanEnableCheckbox_toggled(bool checked)
+void MainWindow::sdwanEnableToggled(bool checked)
 {
     sdwanEnabled = checked;
     ui->nodeLicenseImportButton->setEnabled(checked);
@@ -1063,12 +1063,12 @@ void MainWindow::on_sdwanEnableCheckbox_toggled(bool checked)
     updateSDWANStatus();
 }
 
-void MainWindow::on_sdwanAutoStartCheckbox_toggled(bool checked)
+void MainWindow::sdwanAutoStartToggled(bool checked)
 {
     sdwanAutoStart = checked;
 }
 
-void MainWindow::on_sdwanStartButton_clicked()
+void MainWindow::sdwanStartClicked()
 {
     if (sdwanConnected) {
         return;
@@ -1122,7 +1122,7 @@ void MainWindow::updateSDWANStatus()
     }
 }
 
-void MainWindow::on_nodeLicenseImportButton_clicked()
+void MainWindow::nodeLicenseImport()
 {
     QString fileName = QFileDialog::getOpenFileName(this,
         tr("选择节点许可文件"),
