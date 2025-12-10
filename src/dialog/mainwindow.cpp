@@ -39,6 +39,7 @@ extern "C" {
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDialog>
+#include <QDir>
 #include <QEventTransition>
 #include <QFile>
 #include <QFileDialog>
@@ -79,8 +80,8 @@ MainWindow::MainWindow(QWidget* parent, const QString profileName)
 
     connect(ui->sdwanEnableCheckbox, &QCheckBox::toggled,
         this, &MainWindow::on_sdwanEnableCheckbox_toggled);
-    connect(ui->nodeLicenseBrowseButton, &QPushButton::clicked,
-        this, &MainWindow::on_nodeLicenseBrowseButton_clicked);
+    connect(ui->nodeLicenseImportButton, &QPushButton::clicked,
+        this, &MainWindow::on_nodeLicenseImportButton_clicked);
 
     timer = new QTimer(this);
     blink_timer = new QTimer(this);
@@ -889,11 +890,9 @@ void MainWindow::readSettings()
 
     settings.beginGroup("SDWAN");
     sdwanEnabled = settings.value("enabled", false).toBool();
-    nodeLicensePath = settings.value("nodeLicensePath", "").toString();
     networkId = settings.value("networkId", "").toString();
     
     ui->sdwanEnableCheckbox->setChecked(sdwanEnabled);
-    ui->nodeLicensePathEdit->setText(nodeLicensePath);
     ui->networkIdEdit->setText(networkId);
     settings.endGroup();
 }
@@ -917,7 +916,6 @@ void MainWindow::writeSettings()
 
     settings.beginGroup("SDWAN");
     settings.setValue("enabled", sdwanEnabled);
-    settings.setValue("nodeLicensePath", nodeLicensePath);
     settings.setValue("networkId", networkId);
     settings.endGroup();
 }
@@ -1060,7 +1058,7 @@ void MainWindow::on_actionRemoveSelectedProfile_triggered()
 void MainWindow::on_sdwanEnableCheckbox_toggled(bool checked)
 {
     sdwanEnabled = checked;
-    ui->nodeLicenseBrowseButton->setEnabled(checked);
+    ui->nodeLicenseImportButton->setEnabled(checked);
     ui->networkIdEdit->setEnabled(checked);
     
     if (checked) {
@@ -1071,16 +1069,51 @@ void MainWindow::on_sdwanEnableCheckbox_toggled(bool checked)
     }
 }
 
-void MainWindow::on_nodeLicenseBrowseButton_clicked()
+void MainWindow::on_nodeLicenseImportButton_clicked()
 {
     QString fileName = QFileDialog::getOpenFileName(this,
         tr("选择节点许可文件"),
         QString(),
         tr("许可文件 (node.lic);;所有文件 (*.*)"));
     
-    if (!fileName.isEmpty()) {
-        nodeLicensePath = fileName;
-        ui->nodeLicensePathEdit->setText(fileName);
+    if (fileName.isEmpty()) {
+        return;
+    }
+    
+    if (!QFile::exists(fileName)) {
+        QMessageBox::warning(this,
+            qApp->applicationName(),
+            tr("文件不存在: %1").arg(fileName));
+        return;
+    }
+    
+    QString ztPath = getZeroTierPath();
+    QString planetPath = ztPath + "/planet";
+    
+    QDir dir;
+    if (!dir.exists(ztPath)) {
+        if (!dir.mkpath(ztPath)) {
+            QMessageBox::critical(this,
+                qApp->applicationName(),
+                tr("无法创建目录: %1").arg(ztPath));
+            return;
+        }
+    }
+    
+    if (QFile::exists(planetPath)) {
+        QFile::remove(planetPath);
+    }
+    
+    if (QFile::copy(fileName, planetPath)) {
+        Logger::instance().addMessage(tr("节点许可文件已导入: %1").arg(planetPath));
+        QMessageBox::information(this,
+            qApp->applicationName(),
+            tr("节点许可文件导入成功！\n\n原文件可以删除。"));
+    } else {
+        Logger::instance().addMessage(tr("导入节点许可文件失败: %1 -> %2").arg(fileName).arg(planetPath));
+        QMessageBox::critical(this,
+            qApp->applicationName(),
+            tr("导入节点许可文件失败！\n\n请检查文件权限。"));
     }
 }
 
@@ -1121,18 +1154,6 @@ bool MainWindow::startZeroTier()
         Logger::instance().addMessage(tr("SD-WAN 可执行文件不存在: %1").arg(ztExecutable));
         ui->sdwanStatusLabel->setText(tr("错误: 程序未找到"));
         return false;
-    }
-
-    if (!nodeLicensePath.isEmpty() && QFile::exists(nodeLicensePath)) {
-        QString planetPath = ztPath + "/planet";
-        if (QFile::exists(planetPath)) {
-            QFile::remove(planetPath);
-        }
-        if (!QFile::copy(nodeLicensePath, planetPath)) {
-            Logger::instance().addMessage(tr("无法复制节点许可文件到: %1").arg(planetPath));
-        } else {
-            Logger::instance().addMessage(tr("已复制节点许可文件: %1 -> %2").arg(nodeLicensePath).arg(planetPath));
-        }
     }
 
     if (zerotierProcess) {
