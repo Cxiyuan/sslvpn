@@ -86,6 +86,8 @@ public slots:
 
     void closeEvent(QCloseEvent* event) override;
 
+    void shutdownSDWAN();
+
     void on_actionNewProfile_triggered();
     void on_actionNewProfileAdvanced_triggered();
     void on_actionEditSelectedProfile_triggered();
