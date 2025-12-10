@@ -50,6 +50,18 @@ if(WIN32)
     )
 endif()
 
+if(APPLE)
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/node/macos/
+        DESTINATION node
+        COMPONENT SDWAN_Node
+        FILES_MATCHING
+        PATTERN "zerotier-one"
+        PATTERN "MacEthernetTapAgent"
+        PATTERN "zerotier-one.port"
+        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+    )
+endif()
+
 include(clang-format)
 include(git_revision_main)
 include(build_timestamp_main)

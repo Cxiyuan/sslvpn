@@ -246,6 +246,16 @@ elseif(APPLE)
         DESTINATION ${PROJECT_NAME}.app/Contents/Resources
         COMPONENT App
     )
+    
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/node/macos/
+        DESTINATION ${PROJECT_NAME}.app/Contents/Resources/node
+        COMPONENT App
+        FILES_MATCHING
+        PATTERN "zerotier-one"
+        PATTERN "MacEthernetTapAgent"
+        PATTERN "zerotier-one.port"
+        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+    )
 else()
     message(STATUS "Nothing to bundle...")
 endif()
