@@ -1071,9 +1071,6 @@ void MainWindow::on_sdwanAutoStartCheckbox_toggled(bool checked)
 void MainWindow::on_sdwanStartButton_clicked()
 {
     if (sdwanConnected) {
-        QMessageBox::information(this,
-            qApp->applicationName(),
-            tr("SD-WAN已经连接"));
         return;
     }
     
@@ -1089,9 +1086,6 @@ void MainWindow::on_sdwanStartButton_clicked()
     ui->sdwanStatusLabel->setText(tr("正在启动..."));
     
     if (!startZeroTier()) {
-        QMessageBox::critical(this,
-            qApp->applicationName(),
-            tr("启动 SD-WAN 失败"));
         return;
     }
 
@@ -1102,9 +1096,6 @@ void MainWindow::on_sdwanStartButton_clicked()
         }
         
         if (!joinZeroTierNetwork(networkId)) {
-            QMessageBox::critical(this,
-                qApp->applicationName(),
-                tr("加入 SD-WAN 网络失败"));
             return;
         }
         lastJoinedNetworkId = networkId;
@@ -1115,10 +1106,6 @@ void MainWindow::on_sdwanStartButton_clicked()
     
     sdwanConnected = true;
     updateSDWANStatus();
-    
-    QMessageBox::information(this,
-        qApp->applicationName(),
-        tr("SD-WAN 隧道已建立成功！"));
 }
 
 void MainWindow::updateSDWANStatus()
@@ -1172,9 +1159,6 @@ void MainWindow::on_nodeLicenseImportButton_clicked()
     
     if (QFile::copy(fileName, planetPath)) {
         Logger::instance().addMessage(tr("节点许可文件已导入: %1").arg(planetPath));
-        QMessageBox::information(this,
-            qApp->applicationName(),
-            tr("节点许可文件导入成功！\n\n原文件可以删除。"));
     } else {
         Logger::instance().addMessage(tr("导入节点许可文件失败: %1 -> %2").arg(fileName).arg(planetPath));
         QMessageBox::critical(this,
@@ -1227,6 +1211,9 @@ bool MainWindow::startZeroTier()
     }
     zerotierProcess = new QProcess(this);
     zerotierProcess->setWorkingDirectory(ztPath);
+    zerotierProcess->setCreateProcessArgumentsModifier([](QProcess::CreateProcessArguments *args) {
+        args->flags |= CREATE_NO_WINDOW;
+    });
     
 #ifdef _WIN32
     zerotierProcess->start("cmd.exe", QStringList() << "/c" << startBat);
