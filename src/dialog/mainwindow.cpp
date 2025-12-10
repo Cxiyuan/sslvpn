@@ -359,7 +359,7 @@ MainWindow::~MainWindow()
         QProcess stopProcess;
         stopProcess.setWorkingDirectory(ztPath);
         QStringList arguments;
-        arguments << "-q" << "-D" << "." << "terminate";
+        arguments << "-C" << "." << "-q" << "terminate";
         
         stopProcess.start(ztExecutable, arguments);
         if (stopProcess.waitForFinished(3000)) {
@@ -837,12 +837,23 @@ void MainWindow::shutdownSDWAN()
     QProcess stopProcess;
     stopProcess.setWorkingDirectory(ztPath);
     QStringList arguments;
-    arguments << "-q" << "-D" << "." << "terminate";
+    arguments << "-C" << "." << "-q" << "terminate";
+    
+    Logger::instance().addMessage(tr("执行终止命令: %1 %2").arg(ztExecutable).arg(arguments.join(" ")));
     
     stopProcess.start(ztExecutable, arguments);
     if (stopProcess.waitForFinished(3000)) {
         int exitCode = stopProcess.exitCode();
-        Logger::instance().addMessage(tr("SD-WAN 服务终止命令已发送 (退出码: %1)").arg(exitCode));
+        QString output = QString::fromLocal8Bit(stopProcess.readAllStandardOutput());
+        QString errors = QString::fromLocal8Bit(stopProcess.readAllStandardError());
+        
+        Logger::instance().addMessage(tr("SD-WAN 服务终止命令完成 (退出码: %1)").arg(exitCode));
+        if (!output.isEmpty()) {
+            Logger::instance().addMessage(tr("输出: %1").arg(output));
+        }
+        if (!errors.isEmpty()) {
+            Logger::instance().addMessage(tr("错误: %1").arg(errors));
+        }
     } else {
         Logger::instance().addMessage(tr("SD-WAN 服务终止命令超时"));
     }
