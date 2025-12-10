@@ -36,6 +36,19 @@ install(FILES LICENSE.txt
     COMPONENT App
 )
 
+if(WIN32)
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/node/windows/
+        DESTINATION node
+        COMPONENT SDWAN_Node
+        FILES_MATCHING
+        PATTERN "zerotier-one_x64.exe"
+        PATTERN "zerotier-one.port"
+        PATTERN "zttap300.cat"
+        PATTERN "zttap300.inf"
+        PATTERN "zttap300.sys"
+    )
+endif()
+
 include(clang-format)
 include(git_revision_main)
 include(build_timestamp_main)

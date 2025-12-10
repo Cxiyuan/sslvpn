@@ -49,7 +49,7 @@ if(WIN32 AND MINGW)
     )
 
     # NSIS'es list of all components
-    set(CPACK_COMPONENTS_ALL App App_Console vpnc_script TAP_drivers)
+    set(CPACK_COMPONENTS_ALL App App_Console vpnc_script TAP_drivers SDWAN_Node)
 
     set(CPACK_COMPONENT_APP_REQUIRED on)
     set(CPACK_COMPONENT_APP_DISPLAY_NAME "GUI")
@@ -82,6 +82,12 @@ if(WIN32 AND MINGW)
     set(CPACK_COMPONENT_APP_CONSOLE_DESCRIPTION "${PRODUCT_NAME_LONG} (console)")
     set(CPACK_COMPONENT_APP_CONSOLE_GROUP "Application")
     set(CPACK_COMPONENT_APP_CONSOLE_INSTALL_TYPES Full)
+
+    set(CPACK_COMPONENT_SDWAN_NODE_REQUIRED on)
+    set(CPACK_COMPONENT_SDWAN_NODE_DISPLAY_NAME "SD-WAN Node")
+    set(CPACK_COMPONENT_SDWAN_NODE_DESCRIPTION "SD-WAN node components")
+    set(CPACK_COMPONENT_SDWAN_NODE_GROUP "Application")
+    set(CPACK_COMPONENT_SDWAN_NODE_INSTALL_TYPES Full AppOnly Standard)
 
     # custom install command to populate NDIS drivers
     list(APPEND CPACK_NSIS_EXTRA_INSTALL_COMMANDS " ExecWait '\\\"$INSTDIR\\\\Drivers\\\\tap-windows.exe\\\" /S /norestart'")
