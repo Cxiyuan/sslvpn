@@ -1197,14 +1197,14 @@ bool MainWindow::startZeroTier()
     }
 
     QString ztPath = getZeroTierPath();
-    QString startBat = ztPath + "/sdwan-start.bat";
+    QString ztExecutable = ztPath + "/zerotier-one_x64.exe";
     
     Logger::instance().addMessage(tr("SD-WAN 路径: %1").arg(ztPath));
-    Logger::instance().addMessage(tr("SD-WAN 启动脚本: %1").arg(startBat));
+    Logger::instance().addMessage(tr("SD-WAN 可执行文件: %1").arg(ztExecutable));
     
-    if (!QFile::exists(startBat)) {
-        Logger::instance().addMessage(tr("SD-WAN 启动脚本不存在: %1").arg(startBat));
-        ui->sdwanStatusLabel->setText(tr("错误: 脚本未找到"));
+    if (!QFile::exists(ztExecutable)) {
+        Logger::instance().addMessage(tr("SD-WAN 可执行文件不存在: %1").arg(ztExecutable));
+        ui->sdwanStatusLabel->setText(tr("错误: 程序未找到"));
         return false;
     }
 
@@ -1213,17 +1213,20 @@ bool MainWindow::startZeroTier()
     }
     zerotierProcess = new QProcess(this);
     zerotierProcess->setWorkingDirectory(ztPath);
-    zerotierProcess->setCreateProcessArgumentsModifier([](QProcess::CreateProcessArguments *args) {
-        args->flags |= CREATE_NO_WINDOW;
-    });
     
 #ifdef _WIN32
-    zerotierProcess->start("cmd.exe", QStringList() << "/c" << startBat);
+    zerotierProcess->setProgram(ztExecutable);
+    zerotierProcess->setArguments(QStringList() << "-C" << ".");
+    zerotierProcess->setCreateProcessArgumentsModifier([](QProcess::CreateProcessArguments *args) {
+        args->flags |= CREATE_NO_WINDOW;
+        args->startupInfo->dwFlags &= ~STARTF_USESTDHANDLES;
+    });
+    zerotierProcess->start();
 #else
-    zerotierProcess->start(startBat);
+    zerotierProcess->start(ztExecutable, QStringList() << "-C" << ".");
 #endif
     
-    Logger::instance().addMessage(tr("启动命令: cmd.exe /c %1").arg(startBat));
+    Logger::instance().addMessage(tr("启动命令: %1 -C .").arg(ztExecutable));
     
     if (!zerotierProcess->waitForStarted(5000)) {
         Logger::instance().addMessage(tr("SD-WAN 服务启动失败"));
