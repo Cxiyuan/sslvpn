@@ -131,9 +131,15 @@ MainWindow::MainWindow(QWidget* parent, const QString profileName)
 
         QFileSelector selector;
         QIcon icon(selector.select(QStringLiteral(":/images/favicon.ico")));
+        if (icon.isNull()) {
+            Logger::instance().addMessage(QLatin1String("Failed to load tray icon from resources"));
+            icon = QIcon(":/images/favicon.ico");
+        }
         icon.setIsMask(false);
         m_trayIcon->setIcon(icon);
+        m_trayIcon->setVisible(true);
         m_trayIcon->show();
+        Logger::instance().addMessage(QLatin1String("Tray icon created and shown"));
     } else {
         Logger::instance().addMessage(QLatin1String("System doesn't support tray icon"));
         m_trayIcon = nullptr;
