@@ -72,6 +72,8 @@ MainWindow::MainWindow(QWidget* parent, const QString profileName)
     , ui(new Ui::MainWindow)
     , zerotierProcess(nullptr)
     , sdwanEnabled(false)
+    , sdwanAutoStart(false)
+    , sdwanConnected(false)
 {
     ui->setupUi(this);
 
@@ -80,8 +82,12 @@ MainWindow::MainWindow(QWidget* parent, const QString profileName)
 
     connect(ui->sdwanEnableCheckbox, &QCheckBox::toggled,
         this, &MainWindow::on_sdwanEnableCheckbox_toggled);
+    connect(ui->sdwanAutoStartCheckbox, &QCheckBox::toggled,
+        this, &MainWindow::on_sdwanAutoStartCheckbox_toggled);
     connect(ui->nodeLicenseImportButton, &QPushButton::clicked,
         this, &MainWindow::on_nodeLicenseImportButton_clicked);
+    connect(ui->sdwanStartButton, &QPushButton::clicked,
+        this, &MainWindow::on_sdwanStartButton_clicked);
 
     timer = new QTimer(this);
     blink_timer = new QTimer(this);
@@ -695,44 +701,6 @@ void MainWindow::on_connectClicked()
         return;
     }
 
-    if (sdwanEnabled) {
-        networkId = ui->networkIdEdit->text().trimmed();
-        
-        if (networkId.isEmpty()) {
-            QMessageBox::warning(this,
-                qApp->applicationName(),
-                tr("请输入网络ID"));
-            return;
-        }
-
-        ui->sdwanStatusLabel->setText(tr("正在启动..."));
-        
-        if (!startZeroTier()) {
-            QMessageBox::critical(this,
-                qApp->applicationName(),
-                tr("启动 SD-WAN 失败"));
-            return;
-        }
-
-        if (lastJoinedNetworkId != networkId) {
-            if (!lastJoinedNetworkId.isEmpty()) {
-                Logger::instance().addMessage(tr("网络ID已变化，先离开旧网络: %1").arg(lastJoinedNetworkId));
-                leaveZeroTierNetwork(lastJoinedNetworkId);
-            }
-            
-            if (!joinZeroTierNetwork(networkId)) {
-                QMessageBox::critical(this,
-                    qApp->applicationName(),
-                    tr("加入 SD-WAN 网络失败"));
-                return;
-            }
-            lastJoinedNetworkId = networkId;
-        } else {
-            Logger::instance().addMessage(tr("SD-WAN 已连接到网络: %1").arg(networkId));
-            ui->sdwanStatusLabel->setText(tr("已连接"));
-        }
-    }
-
     name = ui->serverList->currentText();
     ss->load(name);
     turl.setUrl("https://" + ss->get_servername());
@@ -901,11 +869,20 @@ void MainWindow::readSettings()
 
     settings.beginGroup("SDWAN");
     sdwanEnabled = settings.value("enabled", false).toBool();
+    sdwanAutoStart = settings.value("autoStart", false).toBool();
     networkId = settings.value("networkId", "").toString();
     
     ui->sdwanEnableCheckbox->setChecked(sdwanEnabled);
+    ui->sdwanAutoStartCheckbox->setChecked(sdwanAutoStart);
     ui->networkIdEdit->setText(networkId);
     settings.endGroup();
+    
+    if (sdwanEnabled && sdwanAutoStart && !networkId.isEmpty()) {
+        QTimer::singleShot(1000, this, [this]() {
+            Logger::instance().addMessage(tr("SD-WAN 自启动..."));
+            on_sdwanStartButton_clicked();
+        });
+    }
 }
 
 void MainWindow::writeSettings()
@@ -927,6 +904,7 @@ void MainWindow::writeSettings()
 
     settings.beginGroup("SDWAN");
     settings.setValue("enabled", sdwanEnabled);
+    settings.setValue("autoStart", sdwanAutoStart);
     settings.setValue("networkId", networkId);
     settings.endGroup();
 }
@@ -1071,12 +1049,89 @@ void MainWindow::on_sdwanEnableCheckbox_toggled(bool checked)
     sdwanEnabled = checked;
     ui->nodeLicenseImportButton->setEnabled(checked);
     ui->networkIdEdit->setEnabled(checked);
+    ui->sdwanAutoStartCheckbox->setEnabled(checked);
+    ui->sdwanStartButton->setEnabled(checked);
     
     if (checked) {
         ui->sdwanStatusLabel->setText(tr("未连接"));
     } else {
         ui->sdwanStatusLabel->setText(tr("未启用"));
         lastJoinedNetworkId.clear();
+        sdwanConnected = false;
+    }
+    
+    updateSDWANStatus();
+}
+
+void MainWindow::on_sdwanAutoStartCheckbox_toggled(bool checked)
+{
+    sdwanAutoStart = checked;
+}
+
+void MainWindow::on_sdwanStartButton_clicked()
+{
+    if (sdwanConnected) {
+        QMessageBox::information(this,
+            qApp->applicationName(),
+            tr("SD-WAN已经连接"));
+        return;
+    }
+    
+    networkId = ui->networkIdEdit->text().trimmed();
+    
+    if (networkId.isEmpty()) {
+        QMessageBox::warning(this,
+            qApp->applicationName(),
+            tr("请输入网络ID"));
+        return;
+    }
+
+    ui->sdwanStatusLabel->setText(tr("正在启动..."));
+    
+    if (!startZeroTier()) {
+        QMessageBox::critical(this,
+            qApp->applicationName(),
+            tr("启动 SD-WAN 失败"));
+        return;
+    }
+
+    if (lastJoinedNetworkId != networkId) {
+        if (!lastJoinedNetworkId.isEmpty()) {
+            Logger::instance().addMessage(tr("网络ID已变化，先离开旧网络: %1").arg(lastJoinedNetworkId));
+            leaveZeroTierNetwork(lastJoinedNetworkId);
+        }
+        
+        if (!joinZeroTierNetwork(networkId)) {
+            QMessageBox::critical(this,
+                qApp->applicationName(),
+                tr("加入 SD-WAN 网络失败"));
+            return;
+        }
+        lastJoinedNetworkId = networkId;
+    } else {
+        Logger::instance().addMessage(tr("SD-WAN 已连接到网络: %1").arg(networkId));
+        ui->sdwanStatusLabel->setText(tr("已连接"));
+    }
+    
+    sdwanConnected = true;
+    updateSDWANStatus();
+    
+    QMessageBox::information(this,
+        qApp->applicationName(),
+        tr("SD-WAN 隧道已建立成功！"));
+}
+
+void MainWindow::updateSDWANStatus()
+{
+    if (sdwanEnabled) {
+        ui->sdwanMainStatusLabel->setVisible(true);
+        if (sdwanConnected) {
+            ui->sdwanMainStatusLabel->setText(tr("SD-WAN状态: 就绪"));
+        } else {
+            ui->sdwanMainStatusLabel->setText(tr("SD-WAN状态: 未就绪"));
+        }
+    } else {
+        ui->sdwanMainStatusLabel->setVisible(false);
     }
 }
 
@@ -1156,14 +1211,14 @@ bool MainWindow::startZeroTier()
     }
 
     QString ztPath = getZeroTierPath();
-    QString ztExecutable = ztPath + "/zerotier-one_x64.exe";
+    QString startBat = ztPath + "/sdwan-start.bat";
     
     Logger::instance().addMessage(tr("SD-WAN 路径: %1").arg(ztPath));
-    Logger::instance().addMessage(tr("SD-WAN 可执行文件: %1").arg(ztExecutable));
+    Logger::instance().addMessage(tr("SD-WAN 启动脚本: %1").arg(startBat));
     
-    if (!QFile::exists(ztExecutable)) {
-        Logger::instance().addMessage(tr("SD-WAN 可执行文件不存在: %1").arg(ztExecutable));
-        ui->sdwanStatusLabel->setText(tr("错误: 程序未找到"));
+    if (!QFile::exists(startBat)) {
+        Logger::instance().addMessage(tr("SD-WAN 启动脚本不存在: %1").arg(startBat));
+        ui->sdwanStatusLabel->setText(tr("错误: 脚本未找到"));
         return false;
     }
 
@@ -1173,12 +1228,13 @@ bool MainWindow::startZeroTier()
     zerotierProcess = new QProcess(this);
     zerotierProcess->setWorkingDirectory(ztPath);
     
-    QStringList arguments;
-    arguments << "-C" << ".";
+#ifdef _WIN32
+    zerotierProcess->start("cmd.exe", QStringList() << "/c" << startBat);
+#else
+    zerotierProcess->start(startBat);
+#endif
     
-    Logger::instance().addMessage(tr("启动命令: %1 %2").arg(ztExecutable).arg(arguments.join(" ")));
-    
-    zerotierProcess->start(ztExecutable, arguments);
+    Logger::instance().addMessage(tr("启动命令: cmd.exe /c %1").arg(startBat));
     
     if (!zerotierProcess->waitForStarted(5000)) {
         Logger::instance().addMessage(tr("SD-WAN 服务启动失败"));
@@ -1186,8 +1242,8 @@ bool MainWindow::startZeroTier()
         return false;
     }
 
-    Logger::instance().addMessage(tr("SD-WAN 服务已启动，等待2秒初始化..."));
-    QThread::msleep(2000);
+    Logger::instance().addMessage(tr("SD-WAN 服务已启动，等待3秒初始化..."));
+    QThread::msleep(3000);
     
     return true;
 }
@@ -1199,17 +1255,21 @@ bool MainWindow::leaveZeroTierNetwork(const QString& networkId)
     }
 
     QString ztPath = getZeroTierPath();
-    QString ztExecutable = ztPath + "/zerotier-one_x64.exe";
+    QString networkBat = ztPath + "/sdwan-network.bat";
     
     QProcess leaveProcess;
     leaveProcess.setWorkingDirectory(ztPath);
     
     QStringList arguments;
-    arguments << "-D" << "." << "leave" << networkId;
+#ifdef _WIN32
+    arguments << "/c" << networkBat << "leave" << networkId;
+    leaveProcess.start("cmd.exe", arguments);
+#else
+    arguments << "leave" << networkId;
+    leaveProcess.start(networkBat, arguments);
+#endif
     
-    Logger::instance().addMessage(tr("执行离开命令: %1 %2").arg(ztExecutable).arg(arguments.join(" ")));
-    
-    leaveProcess.start(ztExecutable, arguments);
+    Logger::instance().addMessage(tr("执行离开命令: cmd.exe /c %1 leave %2").arg(networkBat).arg(networkId));
     
     if (!leaveProcess.waitForFinished(10000)) {
         Logger::instance().addMessage(tr("离开 SD-WAN 网络超时: %1").arg(networkId));
@@ -1250,17 +1310,21 @@ bool MainWindow::joinZeroTierNetwork(const QString& networkId)
     }
 
     QString ztPath = getZeroTierPath();
-    QString ztExecutable = ztPath + "/zerotier-one_x64.exe";
+    QString networkBat = ztPath + "/sdwan-network.bat";
     
     QProcess joinProcess;
     joinProcess.setWorkingDirectory(ztPath);
     
     QStringList arguments;
-    arguments << "-D" << "." << "join" << networkId;
+#ifdef _WIN32
+    arguments << "/c" << networkBat << "join" << networkId;
+    joinProcess.start("cmd.exe", arguments);
+#else
+    arguments << "join" << networkId;
+    joinProcess.start(networkBat, arguments);
+#endif
     
-    Logger::instance().addMessage(tr("执行命令: %1 %2").arg(ztExecutable).arg(arguments.join(" ")));
-    
-    joinProcess.start(ztExecutable, arguments);
+    Logger::instance().addMessage(tr("执行命令: cmd.exe /c %1 join %2").arg(networkBat).arg(networkId));
     
     if (!joinProcess.waitForFinished(10000)) {
         Logger::instance().addMessage(tr("加入 SD-WAN 网络超时"));

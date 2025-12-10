@@ -158,6 +158,16 @@
               </item>
              </layout>
             </item>
+            <item>
+             <widget class="QLabel" name="sdwanMainStatusLabel">
+              <property name="visible">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>SD-WAN状态: 未就绪</string>
+              </property>
+             </widget>
+            </item>
            </layout>
           </item>
          </layout>
@@ -185,12 +195,12 @@
            </widget>
           </item>
           <item row="0" column="1">
-           <widget class="QLabel" name="sdwanStatusLabel">
-            <property name="text">
-             <string>未连接</string>
+           <widget class="QCheckBox" name="sdwanAutoStartCheckbox">
+            <property name="enabled">
+             <bool>false</bool>
             </property>
-            <property name="alignment">
-             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+            <property name="text">
+             <string>自启动</string>
             </property>
            </widget>
           </item>
@@ -228,6 +238,33 @@
             </property>
             <property name="maxLength">
              <number>16</number>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="sdwanStatusLabelText">
+            <property name="text">
+             <string>状态:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QLabel" name="sdwanStatusLabel">
+            <property name="text">
+             <string>未连接</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0" colspan="2">
+           <widget class="QPushButton" name="sdwanStartButton">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>启动SD-WAN</string>
             </property>
            </widget>
           </item>

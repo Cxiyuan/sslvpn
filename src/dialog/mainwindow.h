@@ -94,7 +94,9 @@ public slots:
     void on_actionRemoveSelectedProfile_triggered();
 
     void on_sdwanEnableCheckbox_toggled(bool checked);
+    void on_sdwanAutoStartCheckbox_toggled(bool checked);
     void on_nodeLicenseImportButton_clicked();
+    void on_sdwanStartButton_clicked();
 
 signals:
     void stats_changed_sig(QString, QString, QString);
@@ -144,6 +146,10 @@ private:
 
     QProcess* zerotierProcess;
     bool sdwanEnabled;
+    bool sdwanAutoStart;
+    bool sdwanConnected;
     QString networkId;
     QString lastJoinedNetworkId;
+    
+    void updateSDWANStatus();
 };
