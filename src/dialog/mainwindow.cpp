@@ -1205,7 +1205,7 @@ bool MainWindow::leaveZeroTierNetwork(const QString& networkId)
     leaveProcess.setWorkingDirectory(ztPath);
     
     QStringList arguments;
-    arguments << "-q" << "-D" << "." << "leave" << networkId;
+    arguments << "-D" << "." << "leave" << networkId;
     
     Logger::instance().addMessage(tr("执行离开命令: %1 %2").arg(ztExecutable).arg(arguments.join(" ")));
     
@@ -1256,7 +1256,7 @@ bool MainWindow::joinZeroTierNetwork(const QString& networkId)
     joinProcess.setWorkingDirectory(ztPath);
     
     QStringList arguments;
-    arguments << "-q" << "-D" << "." << "join" << networkId;
+    arguments << "-D" << "." << "join" << networkId;
     
     Logger::instance().addMessage(tr("执行命令: %1 %2").arg(ztExecutable).arg(arguments.join(" ")));
     
