@@ -1114,8 +1114,10 @@ void MainWindow::updateSDWANStatus()
         ui->sdwanMainStatusLabel->setVisible(true);
         if (sdwanConnected) {
             ui->sdwanMainStatusLabel->setText(tr("SD-WAN: 就绪"));
+            ui->sdwanMainStatusLabel->setStyleSheet("font-size: 9pt; color: green;");
         } else {
             ui->sdwanMainStatusLabel->setText(tr("SD-WAN: 未就绪"));
+            ui->sdwanMainStatusLabel->setStyleSheet("font-size: 9pt; color: red;");
         }
     } else {
         ui->sdwanMainStatusLabel->setVisible(false);
