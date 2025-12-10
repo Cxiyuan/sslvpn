@@ -1061,6 +1061,9 @@ bool MainWindow::startZeroTier()
     QString ztPath = getZeroTierPath();
     QString ztExecutable = ztPath + "/zerotier-one_x64.exe";
     
+    Logger::instance().addMessage(tr("SD-WAN 路径: %1").arg(ztPath));
+    Logger::instance().addMessage(tr("SD-WAN 可执行文件: %1").arg(ztExecutable));
+    
     if (!QFile::exists(ztExecutable)) {
         Logger::instance().addMessage(tr("SD-WAN 可执行文件不存在: %1").arg(ztExecutable));
         ui->sdwanStatusLabel->setText(tr("错误: 程序未找到"));
@@ -1074,6 +1077,8 @@ bool MainWindow::startZeroTier()
         }
         if (!QFile::copy(nodeLicensePath, planetPath)) {
             Logger::instance().addMessage(tr("无法复制节点许可文件到: %1").arg(planetPath));
+        } else {
+            Logger::instance().addMessage(tr("已复制节点许可文件: %1 -> %2").arg(nodeLicensePath).arg(planetPath));
         }
     }
 
@@ -1086,6 +1091,8 @@ bool MainWindow::startZeroTier()
     QStringList arguments;
     arguments << "-C" << ".";
     
+    Logger::instance().addMessage(tr("启动命令: %1 %2").arg(ztExecutable).arg(arguments.join(" ")));
+    
     zerotierProcess->start(ztExecutable, arguments);
     
     if (!zerotierProcess->waitForStarted(5000)) {
@@ -1094,7 +1101,7 @@ bool MainWindow::startZeroTier()
         return false;
     }
 
-    Logger::instance().addMessage(tr("SD-WAN 服务已启动"));
+    Logger::instance().addMessage(tr("SD-WAN 服务已启动，等待2秒初始化..."));
     QThread::msleep(2000);
     
     return true;
@@ -1115,6 +1122,8 @@ bool MainWindow::leaveZeroTierNetwork(const QString& networkId)
     QStringList arguments;
     arguments << "-q" << "-D" << "." << "leave" << networkId;
     
+    Logger::instance().addMessage(tr("执行离开命令: %1 %2").arg(ztExecutable).arg(arguments.join(" ")));
+    
     leaveProcess.start(ztExecutable, arguments);
     
     if (!leaveProcess.waitForFinished(10000)) {
@@ -1124,10 +1133,15 @@ bool MainWindow::leaveZeroTierNetwork(const QString& networkId)
         QString output = QString::fromLocal8Bit(leaveProcess.readAllStandardOutput());
         QString errors = QString::fromLocal8Bit(leaveProcess.readAllStandardError());
         
+        Logger::instance().addMessage(tr("离开命令输出: %1").arg(output.isEmpty() ? "(空)" : output));
+        if (!errors.isEmpty()) {
+            Logger::instance().addMessage(tr("离开错误输出: %1").arg(errors));
+        }
+        
         if (exitCode == 0) {
             Logger::instance().addMessage(tr("已离开 SD-WAN 网络: %1").arg(networkId));
         } else {
-            Logger::instance().addMessage(tr("离开网络失败 (退出码: %1): %2").arg(exitCode).arg(errors));
+            Logger::instance().addMessage(tr("离开网络失败 (退出码: %1)").arg(exitCode));
         }
     }
 
@@ -1159,6 +1173,8 @@ bool MainWindow::joinZeroTierNetwork(const QString& networkId)
     QStringList arguments;
     arguments << "-q" << "-D" << "." << "join" << networkId;
     
+    Logger::instance().addMessage(tr("执行命令: %1 %2").arg(ztExecutable).arg(arguments.join(" ")));
+    
     joinProcess.start(ztExecutable, arguments);
     
     if (!joinProcess.waitForFinished(10000)) {
@@ -1171,12 +1187,17 @@ bool MainWindow::joinZeroTierNetwork(const QString& networkId)
     QString output = QString::fromLocal8Bit(joinProcess.readAllStandardOutput());
     QString errors = QString::fromLocal8Bit(joinProcess.readAllStandardError());
     
+    Logger::instance().addMessage(tr("命令输出: %1").arg(output.isEmpty() ? "(空)" : output));
+    if (!errors.isEmpty()) {
+        Logger::instance().addMessage(tr("错误输出: %1").arg(errors));
+    }
+    
     if (exitCode == 0) {
         Logger::instance().addMessage(tr("已加入 SD-WAN 网络: %1").arg(networkId));
         ui->sdwanStatusLabel->setText(tr("已连接"));
         return true;
     } else {
-        Logger::instance().addMessage(tr("加入网络失败 (退出码: %1): %2").arg(exitCode).arg(errors));
+        Logger::instance().addMessage(tr("加入网络失败 (退出码: %1)").arg(exitCode));
         ui->sdwanStatusLabel->setText(tr("加入失败"));
         return false;
     }
