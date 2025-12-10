@@ -18,5 +18,5 @@ if "%NETWORK_ID%"=="" (
     exit /b 1
 )
 
-zerotier-one_x64.exe -q -D"." %ACTION% %NETWORK_ID%
+zerotier-one_x64.exe -q -D. %ACTION% %NETWORK_ID%
 exit /b %ERRORLEVEL%

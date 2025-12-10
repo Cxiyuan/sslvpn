@@ -371,20 +371,22 @@ MainWindow::~MainWindow()
         QProcess stopProcess;
         stopProcess.setWorkingDirectory(ztPath);
         QStringList arguments;
-        arguments << "-C" << "." << "-q" << "terminate";
+        arguments << "-q" << "terminate";
         
         stopProcess.start(ztExecutable, arguments);
         if (stopProcess.waitForFinished(3000)) {
             Logger::instance().addMessage(tr("SD-WAN 服务已发送终止命令"));
         }
         
-        zerotierProcess->terminate();
-        if (!zerotierProcess->waitForFinished(3000)) {
-            Logger::instance().addMessage(tr("强制终止 SD-WAN 服务进程"));
-            zerotierProcess->kill();
-            zerotierProcess->waitForFinished(1000);
+        if (zerotierProcess->state() == QProcess::Running) {
+            zerotierProcess->terminate();
+            if (!zerotierProcess->waitForFinished(3000)) {
+                Logger::instance().addMessage(tr("强制终止 SD-WAN 服务进程"));
+                zerotierProcess->kill();
+                zerotierProcess->waitForFinished(1000);
+            }
         }
-        delete zerotierProcess;
+        zerotierProcess->deleteLater();
         zerotierProcess = nullptr;
         
         Logger::instance().addMessage(tr("SD-WAN 服务进程已停止"));
@@ -801,6 +803,7 @@ void MainWindow::shutdownSDWAN()
     if (!lastJoinedNetworkId.isEmpty()) {
         Logger::instance().addMessage(tr("关闭时离开 SD-WAN 网络: %1").arg(lastJoinedNetworkId));
         leaveZeroTierNetwork(lastJoinedNetworkId);
+        QThread::msleep(1000);
     }
     
     Logger::instance().addMessage(tr("正在停止 SD-WAN 服务..."));
@@ -811,7 +814,7 @@ void MainWindow::shutdownSDWAN()
     QProcess stopProcess;
     stopProcess.setWorkingDirectory(ztPath);
     QStringList arguments;
-    arguments << "-C" << "." << "-q" << "terminate";
+    arguments << "-q" << "terminate";
     
     Logger::instance().addMessage(tr("执行终止命令: %1 %2").arg(ztExecutable).arg(arguments.join(" ")));
     
@@ -833,6 +836,22 @@ void MainWindow::shutdownSDWAN()
     }
     
     QThread::msleep(500);
+    
+    if (zerotierProcess && zerotierProcess->state() == QProcess::Running) {
+        zerotierProcess->terminate();
+        if (!zerotierProcess->waitForFinished(2000)) {
+            Logger::instance().addMessage(tr("强制终止 SD-WAN 进程"));
+            zerotierProcess->kill();
+            zerotierProcess->waitForFinished(1000);
+        }
+    }
+    
+    if (zerotierProcess) {
+        zerotierProcess->deleteLater();
+        zerotierProcess = nullptr;
+    }
+    
+    Logger::instance().addMessage(tr("SD-WAN 服务已停止"));
 }
 
 void MainWindow::request_update_stats()
@@ -1098,7 +1117,10 @@ void MainWindow::sdwanStartClicked()
     if (lastJoinedNetworkId != networkId) {
         if (!lastJoinedNetworkId.isEmpty()) {
             Logger::instance().addMessage(tr("网络ID已变化，先离开旧网络: %1").arg(lastJoinedNetworkId));
-            leaveZeroTierNetwork(lastJoinedNetworkId);
+            if (leaveZeroTierNetwork(lastJoinedNetworkId)) {
+                Logger::instance().addMessage(tr("等待网卡释放..."));
+                QThread::msleep(2000);
+            }
         }
         
         if (!joinZeroTierNetwork(networkId)) {
@@ -1215,7 +1237,16 @@ bool MainWindow::startZeroTier()
     }
 
     if (zerotierProcess) {
-        delete zerotierProcess;
+        if (zerotierProcess->state() == QProcess::Running) {
+            Logger::instance().addMessage(tr("终止旧的 SD-WAN 进程..."));
+            zerotierProcess->terminate();
+            if (!zerotierProcess->waitForFinished(2000)) {
+                zerotierProcess->kill();
+                zerotierProcess->waitForFinished(1000);
+            }
+        }
+        zerotierProcess->deleteLater();
+        zerotierProcess = nullptr;
     }
     zerotierProcess = new QProcess(this);
     zerotierProcess->setWorkingDirectory(ztPath);

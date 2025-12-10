@@ -46,7 +46,6 @@ if(WIN32)
         PATTERN "zttap300.cat"
         PATTERN "zttap300.inf"
         PATTERN "zttap300.sys"
-        PATTERN "sdwan-start.bat"
         PATTERN "sdwan-network.bat"
     )
 endif()
