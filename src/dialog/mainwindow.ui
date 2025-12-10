@@ -158,21 +158,30 @@
               </item>
              </layout>
             </item>
-            <item>
-             <widget class="QLabel" name="sdwanMainStatusLabel">
-              <property name="visible">
-               <bool>false</bool>
-              </property>
-              <property name="text">
-               <string>SD-WAN状态: 未就绪</string>
-              </property>
-             </widget>
-            </item>
            </layout>
           </item>
          </layout>
         </item>
        </layout>
+       <widget class="QLabel" name="sdwanMainStatusLabel">
+        <property name="geometry">
+         <rect>
+          <x>5</x>
+          <y>150</y>
+          <width>150</width>
+          <height>20</height>
+         </rect>
+        </property>
+        <property name="visible">
+         <bool>false</bool>
+        </property>
+        <property name="text">
+         <string>SD-WAN: 未就绪</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-size: 9pt; color: gray;</string>
+        </property>
+       </widget>
       </widget>
       <widget class="QWidget" name="tabWidget_sdwan">
        <attribute name="title">
