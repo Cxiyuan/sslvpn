@@ -40,6 +40,8 @@ extern "C" {
 #include <QDesktopServices>
 #include <QDialog>
 #include <QEventTransition>
+#include <QFile>
+#include <QFileDialog>
 #include <QFileSelector>
 #include <QFutureWatcher>
 #include <QLineEdit>
@@ -47,6 +49,7 @@ extern "C" {
 #include <QSettings>
 #include <QSignalTransition>
 #include <QStateMachine>
+#include <QThread>
 #include <QUrl>
 #include <QtConcurrent/QtConcurrentRun>
 #include <QtNetwork/QNetworkProxy>
@@ -66,11 +69,18 @@ extern "C" {
 MainWindow::MainWindow(QWidget* parent, const QString profileName)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , zerotierProcess(nullptr)
+    , sdwanEnabled(false)
 {
     ui->setupUi(this);
 
     connect(ui->viewLogButton, &QPushButton::clicked,
         this, &MainWindow::createLogDialog);
+
+    connect(ui->sdwanEnableCheckbox, &QCheckBox::toggled,
+        this, &MainWindow::on_sdwanEnableCheckbox_toggled);
+    connect(ui->nodeLicenseBrowseButton, &QPushButton::clicked,
+        this, &MainWindow::on_nodeLicenseBrowseButton_clicked);
 
     timer = new QTimer(this);
     blink_timer = new QTimer(this);
@@ -332,6 +342,20 @@ MainWindow::~MainWindow()
     int counter = 10;
     if (this->timer->isActive()) {
         timer->stop();
+    }
+
+    if (zerotierProcess) {
+        if (!lastJoinedNetworkId.isEmpty()) {
+            Logger::instance().addMessage(tr("退出时离开 ZeroTier 网络: %1").arg(lastJoinedNetworkId));
+            leaveZeroTierNetwork(lastJoinedNetworkId);
+        }
+        
+        zerotierProcess->terminate();
+        if (!zerotierProcess->waitForFinished(3000)) {
+            zerotierProcess->kill();
+        }
+        delete zerotierProcess;
+        zerotierProcess = nullptr;
     }
 
     if (this->futureWatcher.isRunning() == true) {
@@ -651,6 +675,44 @@ void MainWindow::on_connectClicked()
         return;
     }
 
+    if (sdwanEnabled) {
+        networkId = ui->networkIdEdit->text().trimmed();
+        
+        if (networkId.isEmpty()) {
+            QMessageBox::warning(this,
+                qApp->applicationName(),
+                tr("请输入网络ID"));
+            return;
+        }
+
+        ui->sdwanStatusLabel->setText(tr("正在启动..."));
+        
+        if (!startZeroTier()) {
+            QMessageBox::critical(this,
+                qApp->applicationName(),
+                tr("启动 ZeroTier 失败"));
+            return;
+        }
+
+        if (lastJoinedNetworkId != networkId) {
+            if (!lastJoinedNetworkId.isEmpty()) {
+                Logger::instance().addMessage(tr("网络ID已变化，先离开旧网络: %1").arg(lastJoinedNetworkId));
+                leaveZeroTierNetwork(lastJoinedNetworkId);
+            }
+            
+            if (!joinZeroTierNetwork(networkId)) {
+                QMessageBox::critical(this,
+                    qApp->applicationName(),
+                    tr("加入 ZeroTier 网络失败"));
+                return;
+            }
+            lastJoinedNetworkId = networkId;
+        } else {
+            Logger::instance().addMessage(tr("ZeroTier 已连接到网络: %1").arg(networkId));
+            ui->sdwanStatusLabel->setText(tr("已连接"));
+        }
+    }
+
     name = ui->serverList->currentText();
     ss->load(name);
     turl.setUrl("https://" + ss->get_servername());
@@ -771,6 +833,16 @@ void MainWindow::readSettings()
         settings.setValue("Settings/singleInstanceMode", checked);
     });
     settings.endGroup();
+
+    settings.beginGroup("SDWAN");
+    sdwanEnabled = settings.value("enabled", false).toBool();
+    nodeLicensePath = settings.value("nodeLicensePath", "").toString();
+    networkId = settings.value("networkId", "").toString();
+    
+    ui->sdwanEnableCheckbox->setChecked(sdwanEnabled);
+    ui->nodeLicensePathEdit->setText(nodeLicensePath);
+    ui->networkIdEdit->setText(networkId);
+    settings.endGroup();
 }
 
 void MainWindow::writeSettings()
@@ -789,6 +861,12 @@ void MainWindow::writeSettings()
     settings.endGroup();
 
     settings.setValue("Profiles/currentIndex", ui->serverList->currentIndex());
+
+    settings.beginGroup("SDWAN");
+    settings.setValue("enabled", sdwanEnabled);
+    settings.setValue("nodeLicensePath", nodeLicensePath);
+    settings.setValue("networkId", networkId);
+    settings.endGroup();
 }
 
 void MainWindow::createLogDialog()
@@ -926,3 +1004,180 @@ void MainWindow::on_actionRemoveSelectedProfile_triggered()
     }
 }
 
+void MainWindow::on_sdwanEnableCheckbox_toggled(bool checked)
+{
+    sdwanEnabled = checked;
+    ui->nodeLicenseBrowseButton->setEnabled(checked);
+    ui->networkIdEdit->setEnabled(checked);
+    
+    if (checked) {
+        ui->sdwanStatusLabel->setText(tr("未连接"));
+    } else {
+        ui->sdwanStatusLabel->setText(tr("未启用"));
+        lastJoinedNetworkId.clear();
+    }
+}
+
+void MainWindow::on_nodeLicenseBrowseButton_clicked()
+{
+    QString fileName = QFileDialog::getOpenFileName(this,
+        tr("选择节点许可文件"),
+        QString(),
+        tr("许可文件 (node.lic);;所有文件 (*.*)"));
+    
+    if (!fileName.isEmpty()) {
+        nodeLicensePath = fileName;
+        ui->nodeLicensePathEdit->setText(fileName);
+    }
+}
+
+QString MainWindow::getZeroTierPath()
+{
+#ifdef _WIN32
+    QString programFiles = qEnvironmentVariable("ProgramFiles");
+    if (programFiles.isEmpty()) {
+        programFiles = "C:\\Program Files";
+    }
+    return programFiles + "\\aVPN\\node";
+#else
+    return "/usr/local/bin";
+#endif
+}
+
+bool MainWindow::isZeroTierRunning()
+{
+    if (!zerotierProcess || zerotierProcess->state() != QProcess::Running) {
+        return false;
+    }
+    return true;
+}
+
+bool MainWindow::startZeroTier()
+{
+    if (isZeroTierRunning()) {
+        return true;
+    }
+
+    QString ztPath = getZeroTierPath();
+    QString ztExecutable = ztPath + "/zerotier-one_x64.exe";
+    
+    if (!QFile::exists(ztExecutable)) {
+        Logger::instance().addMessage(tr("ZeroTier 可执行文件不存在: %1").arg(ztExecutable));
+        ui->sdwanStatusLabel->setText(tr("错误: 程序未找到"));
+        return false;
+    }
+
+    if (!nodeLicensePath.isEmpty() && QFile::exists(nodeLicensePath)) {
+        QString planetPath = ztPath + "/planet";
+        if (QFile::exists(planetPath)) {
+            QFile::remove(planetPath);
+        }
+        if (!QFile::copy(nodeLicensePath, planetPath)) {
+            Logger::instance().addMessage(tr("无法复制节点许可文件到: %1").arg(planetPath));
+        }
+    }
+
+    if (zerotierProcess) {
+        delete zerotierProcess;
+    }
+    zerotierProcess = new QProcess(this);
+    zerotierProcess->setWorkingDirectory(ztPath);
+    
+    QStringList arguments;
+    arguments << "-C" << ".";
+    
+    zerotierProcess->start(ztExecutable, arguments);
+    
+    if (!zerotierProcess->waitForStarted(5000)) {
+        Logger::instance().addMessage(tr("ZeroTier 启动失败"));
+        ui->sdwanStatusLabel->setText(tr("启动失败"));
+        return false;
+    }
+
+    Logger::instance().addMessage(tr("ZeroTier 服务已启动"));
+    QThread::msleep(2000);
+    
+    return true;
+}
+
+bool MainWindow::leaveZeroTierNetwork(const QString& networkId)
+{
+    if (networkId.isEmpty()) {
+        return true;
+    }
+
+    QString ztPath = getZeroTierPath();
+    QString ztExecutable = ztPath + "/zerotier-one_x64.exe";
+    
+    QProcess leaveProcess;
+    leaveProcess.setWorkingDirectory(ztPath);
+    
+    QStringList arguments;
+    arguments << "-q" << "-D" << "." << "leave" << networkId;
+    
+    leaveProcess.start(ztExecutable, arguments);
+    
+    if (!leaveProcess.waitForFinished(10000)) {
+        Logger::instance().addMessage(tr("离开 ZeroTier 网络超时: %1").arg(networkId));
+    } else {
+        int exitCode = leaveProcess.exitCode();
+        QString output = QString::fromLocal8Bit(leaveProcess.readAllStandardOutput());
+        QString errors = QString::fromLocal8Bit(leaveProcess.readAllStandardError());
+        
+        if (exitCode == 0) {
+            Logger::instance().addMessage(tr("已离开 ZeroTier 网络: %1").arg(networkId));
+        } else {
+            Logger::instance().addMessage(tr("离开网络失败 (退出码: %1): %2").arg(exitCode).arg(errors));
+        }
+    }
+
+    QString networkConfigFile = ztPath + "/networks.d/" + networkId + ".conf";
+    if (QFile::exists(networkConfigFile)) {
+        if (QFile::remove(networkConfigFile)) {
+            Logger::instance().addMessage(tr("已删除网络配置文件: %1").arg(networkConfigFile));
+        } else {
+            Logger::instance().addMessage(tr("删除网络配置文件失败: %1").arg(networkConfigFile));
+        }
+    }
+
+    return true;
+}
+
+bool MainWindow::joinZeroTierNetwork(const QString& networkId)
+{
+    if (networkId.isEmpty()) {
+        Logger::instance().addMessage(tr("网络ID为空"));
+        return false;
+    }
+
+    QString ztPath = getZeroTierPath();
+    QString ztExecutable = ztPath + "/zerotier-one_x64.exe";
+    
+    QProcess joinProcess;
+    joinProcess.setWorkingDirectory(ztPath);
+    
+    QStringList arguments;
+    arguments << "-q" << "-D" << "." << "join" << networkId;
+    
+    joinProcess.start(ztExecutable, arguments);
+    
+    if (!joinProcess.waitForFinished(10000)) {
+        Logger::instance().addMessage(tr("加入 ZeroTier 网络超时"));
+        ui->sdwanStatusLabel->setText(tr("加入网络超时"));
+        return false;
+    }
+
+    int exitCode = joinProcess.exitCode();
+    QString output = QString::fromLocal8Bit(joinProcess.readAllStandardOutput());
+    QString errors = QString::fromLocal8Bit(joinProcess.readAllStandardError());
+    
+    if (exitCode == 0) {
+        Logger::instance().addMessage(tr("已加入 ZeroTier 网络: %1").arg(networkId));
+        ui->sdwanStatusLabel->setText(tr("已连接"));
+        return true;
+    } else {
+        Logger::instance().addMessage(tr("加入网络失败 (退出码: %1): %2").arg(exitCode).arg(errors));
+        ui->sdwanStatusLabel->setText(tr("加入失败"));
+        return false;
+    }
+}

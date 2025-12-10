@@ -26,6 +26,7 @@
 #include <QMainWindow>
 #include <QMenu>
 #include <QMutex>
+#include <QProcess>
 #include <QSystemTrayIcon>
 #include <QTimer>
 
@@ -90,6 +91,9 @@ public slots:
     void on_actionEditSelectedProfile_triggered();
     void on_actionRemoveSelectedProfile_triggered();
 
+    void on_sdwanEnableCheckbox_toggled(bool checked);
+    void on_nodeLicenseBrowseButton_clicked();
+
 signals:
     void stats_changed_sig(QString, QString, QString);
     void vpn_status_changed_sig(int);
@@ -105,6 +109,12 @@ private:
 
     void readSettings();
     void writeSettings();
+
+    bool startZeroTier();
+    bool joinZeroTierNetwork(const QString& networkId);
+    bool leaveZeroTierNetwork(const QString& networkId);
+    bool isZeroTierRunning();
+    QString getZeroTierPath();
 
     /* we keep the fd instead of a pointer to vpninfo to avoid
      * any multithread issues */
@@ -129,4 +139,10 @@ private:
     QAction* m_minimizeAction;
     QAction* m_restoreAction;
     QAction* m_quitAction;
+
+    QProcess* zerotierProcess;
+    bool sdwanEnabled;
+    QString nodeLicensePath;
+    QString networkId;
+    QString lastJoinedNetworkId;
 };

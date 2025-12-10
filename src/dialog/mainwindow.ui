@@ -164,6 +164,107 @@
         </item>
        </layout>
       </widget>
+      <widget class="QWidget" name="tabWidget_sdwan">
+       <attribute name="title">
+        <string>SD-WAN</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_sdwan">
+        <item>
+         <layout class="QFormLayout" name="formLayout_sdwan">
+          <property name="fieldGrowthPolicy">
+           <enum>QFormLayout::ExpandingFieldsGrow</enum>
+          </property>
+          <property name="formAlignment">
+           <set>Qt::AlignJustify|Qt::AlignTop</set>
+          </property>
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="sdwanEnableCheckbox">
+            <property name="text">
+             <string>启用</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLabel" name="sdwanStatusLabel">
+            <property name="text">
+             <string>未连接</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="nodeLicenseLabelText">
+            <property name="text">
+             <string>节点许可:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <layout class="QHBoxLayout" name="horizontalLayout_nodeLicense">
+            <item>
+             <widget class="QLineEdit" name="nodeLicensePathEdit">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+              <property name="placeholderText">
+               <string>未选择文件</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="nodeLicenseBrowseButton">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>浏览...</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="networkIdLabelText">
+            <property name="text">
+             <string>网络ID:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QLineEdit" name="networkIdEdit">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="placeholderText">
+             <string>请输入16位网络ID</string>
+            </property>
+            <property name="maxLength">
+             <number>16</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <spacer name="verticalSpacer_sdwan">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
       <widget class="QWidget" name="tabWidget_vpnInfo">
        <attribute name="title">
         <string>VPN 信息</string>
