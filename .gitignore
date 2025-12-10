@@ -2,7 +2,6 @@ build/
 *.o
 *.so
 *.dll
-*.exe
 *.dylib
 *.app
 *.dmg
@@ -20,3 +19,6 @@ compile_commands.json
 *.swp
 *.swo
 *~
+
+# Allow node executables
+!node/**/*.exe
