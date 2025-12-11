@@ -1380,6 +1380,12 @@ bool MainWindow::joinZeroTierNetwork(const QString& networkId)
     if (exitCode == 0) {
         Logger::instance().addMessage(tr("已加入 SD-WAN 网络: %1").arg(networkId));
         ui->sdwanStatusLabel->setText(tr("已连接"));
+        
+        QString ztId = getZeroTierId();
+        if (!ztId.isEmpty()) {
+            ui->sdwanZerotierIdLabel->setText(tr("  ID: %1").arg(ztId));
+        }
+        
         return true;
     } else {
         Logger::instance().addMessage(tr("加入网络失败 (退出码: %1)").arg(exitCode));
