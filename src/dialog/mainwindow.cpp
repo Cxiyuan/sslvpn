@@ -397,8 +397,11 @@ MainWindow::~MainWindow()
         Logger::instance().addMessage(tr("SD-WAN 服务进程已停止"));
     }
 
-    if (this->futureWatcher.isRunning() == true) {
-        term_thread(this, &this->cmd_fd);
+    {
+        QMutexLocker locker(&cmd_fd_mutex);
+        if (this->futureWatcher.isRunning() == true) {
+            term_thread(this, &this->cmd_fd);
+        }
     }
     while (this->futureWatcher.isRunning() == true && counter > 0) {
         ms_sleep(200);
@@ -406,6 +409,11 @@ MainWindow::~MainWindow()
     }
 
     writeSettings();
+
+    if (m_appWindowStateMachine) {
+        delete m_appWindowStateMachine;
+        m_appWindowStateMachine = nullptr;
+    }
 
     delete ui;
     delete timer;
@@ -555,7 +563,10 @@ void MainWindow::changeStatus(int val)
         if (this->timer->isActive()) {
             timer->stop();
         }
-        cmd_fd = INVALID_SOCKET;
+        {
+            QMutexLocker locker(&cmd_fd_mutex);
+            cmd_fd = INVALID_SOCKET;
+        }
 
         ui->ipV4Label->clear();
         ui->uploadLabel->clear();
@@ -686,11 +697,14 @@ void MainWindow::on_connectClicked()
     QUrl turl;
     QNetworkProxyQuery query;
 
-    if (this->cmd_fd != INVALID_SOCKET) {
-        QMessageBox::information(this,
-            qApp->applicationName(),
-            tr("先前的VPN实例仍在运行(套接字处于活动状态)"));
-        return;
+    {
+        QMutexLocker locker(&cmd_fd_mutex);
+        if (this->cmd_fd != INVALID_SOCKET) {
+            QMessageBox::information(this,
+                qApp->applicationName(),
+                tr("先前的VPN实例仍在运行(套接字处于活动状态)"));
+            return;
+        }
     }
 
     if (this->futureWatcher.isRunning() == true) {
@@ -726,12 +740,15 @@ void MainWindow::on_connectClicked()
 
     vpninfo->parse_url(ss->get_servername().toLocal8Bit().data());
 
-    this->cmd_fd = vpninfo->get_cmd_fd();
-    if (this->cmd_fd == INVALID_SOCKET) {
-        QMessageBox::information(this,
-            qApp->applicationName(),
-            tr("与openconnect建立IPC时出现问题；请尝试重启应用程序。"));
-        goto fail;
+    {
+        QMutexLocker locker(&cmd_fd_mutex);
+        this->cmd_fd = vpninfo->get_cmd_fd();
+        if (this->cmd_fd == INVALID_SOCKET) {
+            QMessageBox::information(this,
+                qApp->applicationName(),
+                tr("与openconnect建立IPC时出现问题；请尝试重启应用程序。"));
+            goto fail;
+        }
     }
 
     if (ss->get_proxy()) {
@@ -846,7 +863,7 @@ void MainWindow::shutdownSDWAN()
     }
     
     if (zerotierProcess) {
-        zerotierProcess->deleteLater();
+        delete zerotierProcess;
         zerotierProcess = nullptr;
     }
     
@@ -856,6 +873,7 @@ void MainWindow::shutdownSDWAN()
 void MainWindow::request_update_stats()
 {
     char cmd = OC_CMD_STATS;
+    QMutexLocker locker(&cmd_fd_mutex);
     if (this->cmd_fd != INVALID_SOCKET) {
         int ret = pipe_write(this->cmd_fd, &cmd, 1);
         if (ret < 0) {
@@ -1254,7 +1272,7 @@ bool MainWindow::startZeroTier()
                 zerotierProcess->waitForFinished(1000);
             }
         }
-        zerotierProcess->deleteLater();
+        delete zerotierProcess;
         zerotierProcess = nullptr;
     }
     zerotierProcess = new QProcess(this);
@@ -1277,11 +1295,18 @@ bool MainWindow::startZeroTier()
     if (!zerotierProcess->waitForStarted(5000)) {
         Logger::instance().addMessage(tr("SD-WAN 服务启动失败"));
         ui->sdwanStatusLabel->setText(tr("启动失败"));
+        delete zerotierProcess;
+        zerotierProcess = nullptr;
         return false;
     }
 
-    Logger::instance().addMessage(tr("SD-WAN 服务已启动，等待3秒初始化..."));
-    QThread::msleep(3000);
+    Logger::instance().addMessage(tr("SD-WAN 服务已启动，等待初始化..."));
+    ui->sdwanStatusLabel->setText(tr("正在初始化..."));
+    
+    QTimer::singleShot(3000, this, [this]() {
+        ui->sdwanStatusLabel->setText(tr("已启动"));
+        Logger::instance().addMessage(tr("SD-WAN 服务初始化完成"));
+    });
     
     return true;
 }

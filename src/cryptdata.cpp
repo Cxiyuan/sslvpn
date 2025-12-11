@@ -20,7 +20,8 @@
 #include "cryptdata.h"
 
 #if defined(_WIN32)
-// FIXME: these 2 files have to be in this order: windows.h, winbsae.h ???
+#include <QDateTime>
+#include <QSysInfo>
 #include <windows.h>
 #include <winbase.h>
 
@@ -74,9 +75,10 @@ QByteArray CryptData::encode(QString& txt, QString password)
     DataIn.cbData = passwordArray.size() + 1;
 
     DATA_BLOB Entropy;
-    QByteArray txtArray{ txt.toUtf8() };
-    Entropy.pbData = (BYTE*)txtArray.data();
-    Entropy.cbData = txtArray.size() + 1;
+    QString enhancedEntropy = txt + QSysInfo::machineUniqueId() + QString::number(QDateTime::currentSecsSinceEpoch());
+    QByteArray entropyArray{ enhancedEntropy.toUtf8() };
+    Entropy.pbData = (BYTE*)entropyArray.data();
+    Entropy.cbData = entropyArray.size() + 1;
 
     DATA_BLOB DataOut;
     QByteArray res;
@@ -111,9 +113,10 @@ bool CryptData::decode(QString& txt, QByteArray _enc, QString& res)
     DataIn.cbData = enc.size() + 1;
 
     DATA_BLOB Entropy;
-    QByteArray txtArray{ txt.toUtf8() };
-    Entropy.pbData = (BYTE*)txtArray.data();
-    Entropy.cbData = txtArray.size() + 1;
+    QString enhancedEntropy = txt + QSysInfo::machineUniqueId() + QString::number(QDateTime::currentSecsSinceEpoch());
+    QByteArray entropyArray{ enhancedEntropy.toUtf8() };
+    Entropy.pbData = (BYTE*)entropyArray.data();
+    Entropy.cbData = entropyArray.size() + 1;
 
     DATA_BLOB DataOut;
 
@@ -129,15 +132,67 @@ bool CryptData::decode(QString& txt, QByteArray _enc, QString& res)
 
 #else
 
+#include <QCryptographicHash>
+#include <QRandomGenerator>
+
+static QByteArray generateKey(const QString& txt, const QByteArray& salt)
+{
+    QByteArray key = txt.toUtf8() + salt;
+    for (int i = 0; i < 10000; i++) {
+        key = QCryptographicHash::hash(key, QCryptographicHash::Sha256);
+    }
+    return key;
+}
+
+static QByteArray xorEncryptDecrypt(const QByteArray& data, const QByteArray& key)
+{
+    QByteArray result = data;
+    for (int i = 0; i < result.size(); i++) {
+        result[i] = result[i] ^ key[i % key.size()];
+    }
+    return result;
+}
+
 QByteArray CryptData::encode(QString& txt, QString password)
 {
-    return password.toUtf8();
+    QByteArray salt = QByteArray::number(QRandomGenerator::global()->generate64(), 16);
+    QByteArray key = generateKey(txt, salt);
+    
+    QByteArray passwordData = password.toUtf8();
+    QByteArray encrypted = xorEncryptDecrypt(passwordData, key);
+    
+    QByteArray result;
+    result.append("yyyy");
+    result.append(salt.toBase64());
+    result.append(":");
+    result.append(encrypted.toBase64());
+    
+    return result;
 }
 
 bool CryptData::decode(QString& txt, QByteArray _enc, QString& res)
 {
-    res = QString::fromUtf8(_enc);
-    return true;
+    res.clear();
+
+    if (_enc.startsWith("yyyy")) {
+        _enc = _enc.mid(4);
+        int separatorPos = _enc.indexOf(':');
+        if (separatorPos == -1) {
+            return false;
+        }
+        
+        QByteArray salt = QByteArray::fromBase64(_enc.left(separatorPos));
+        QByteArray encrypted = QByteArray::fromBase64(_enc.mid(separatorPos + 1));
+        
+        QByteArray key = generateKey(txt, salt);
+        QByteArray decrypted = xorEncryptDecrypt(encrypted, key);
+        
+        res = QString::fromUtf8(decrypted);
+        return true;
+    } else {
+        res = QString::fromUtf8(_enc);
+        return true;
+    }
 }
 
 #endif

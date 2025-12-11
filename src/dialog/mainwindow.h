@@ -125,6 +125,7 @@ private:
     /* we keep the fd instead of a pointer to vpninfo to avoid
      * any multithread issues */
     SOCKET cmd_fd;
+    QMutex cmd_fd_mutex;
     bool minimize_on_connect;
     Ui::MainWindow* ui;
     QTimer* timer;
