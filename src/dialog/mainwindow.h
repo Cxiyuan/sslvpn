@@ -120,6 +120,7 @@ private:
     bool isZeroTierRunning();
     QString getZeroTierPath();
     QString getZeroTierId();
+    void updateNodeLicenseStatus();
 
     /* we keep the fd instead of a pointer to vpninfo to avoid
      * any multithread issues */

@@ -901,6 +901,8 @@ void MainWindow::readSettings()
     ui->networkIdEdit->setText(networkId);
     settings.endGroup();
     
+    updateNodeLicenseStatus();
+    
     if (sdwanEnabled && sdwanAutoStart && !networkId.isEmpty()) {
         QTimer::singleShot(1000, this, [this]() {
             Logger::instance().addMessage(tr("SD-WAN 自启动..."));
@@ -1195,6 +1197,7 @@ void MainWindow::nodeLicenseImport()
     
     if (QFile::copy(fileName, planetPath)) {
         Logger::instance().addMessage(tr("节点许可文件已导入: %1").arg(planetPath));
+        updateNodeLicenseStatus();
     } else {
         Logger::instance().addMessage(tr("导入节点许可文件失败: %1 -> %2").arg(fileName).arg(planetPath));
         QMessageBox::critical(this,
@@ -1440,4 +1443,17 @@ QString MainWindow::getZeroTierId()
     
     Logger::instance().addMessage(tr("未能从输出中解析SD-WAN节点ID"));
     return QString();
+}
+
+void MainWindow::updateNodeLicenseStatus()
+{
+    QString planetPath = getZeroTierPath() + "/planet";
+    
+    if (QFile::exists(planetPath)) {
+        ui->nodeLicenseStatusLabel->setText(tr("已导入"));
+        ui->nodeLicenseStatusLabel->setStyleSheet("color: green;");
+    } else {
+        ui->nodeLicenseStatusLabel->setText(tr("未导入"));
+        ui->nodeLicenseStatusLabel->setStyleSheet("color: gray;");
+    }
 }

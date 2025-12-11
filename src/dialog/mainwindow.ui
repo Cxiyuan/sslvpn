@@ -221,14 +221,28 @@
            </widget>
           </item>
           <item row="1" column="1">
-           <widget class="QPushButton" name="nodeLicenseImportButton">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="text">
-             <string>导入</string>
-            </property>
-           </widget>
+           <layout class="QHBoxLayout" name="horizontalLayout_nodeLicense">
+            <item>
+             <widget class="QPushButton" name="nodeLicenseImportButton">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>导入</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="nodeLicenseStatusLabel">
+              <property name="text">
+               <string>未导入</string>
+              </property>
+              <property name="styleSheet">
+               <string>color: gray;</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </item>
           <item row="2" column="0">
            <widget class="QLabel" name="networkIdLabelText">
