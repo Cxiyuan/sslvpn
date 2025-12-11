@@ -1074,6 +1074,28 @@ void MainWindow::on_actionSDWANDiagnostic_triggered()
         diagnosticInfo += tr("获取超时\n\n");
     }
     
+    diagnosticInfo += tr("【日志文件】\n");
+    QString logPath = ztPath + "/zerotier-one.log";
+    QFile logFile(logPath);
+    if (logFile.exists() && logFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream in(&logFile);
+        QString allLines = in.readAll();
+        logFile.close();
+        
+        QStringList lines = allLines.split('\n');
+        int lineCount = lines.count();
+        int startLine = qMax(0, lineCount - 50);
+        
+        diagnosticInfo += tr("(最后50行)\n");
+        for (int i = startLine; i < lineCount; ++i) {
+            if (!lines[i].trimmed().isEmpty()) {
+                diagnosticInfo += lines[i] + "\n";
+            }
+        }
+    } else {
+        diagnosticInfo += tr("日志文件不存在或无法读取\n");
+    }
+    
     QMessageBox msgBox(this);
     msgBox.setWindowTitle(tr("SD-WAN诊断"));
     msgBox.setText(diagnosticInfo);
