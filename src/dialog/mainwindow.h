@@ -42,6 +42,15 @@ extern "C" {
 #include <openconnect.h>
 }
 
+static constexpr int ZEROTIER_START_TIMEOUT_MS = 5000;
+static constexpr int ZEROTIER_INIT_WAIT_MS = 3000;
+static constexpr int ZEROTIER_TERMINATE_TIMEOUT_MS = 2000;
+static constexpr int NETWORK_JOIN_TIMEOUT_MS = 10000;
+static constexpr int NETWORK_LEAVE_TIMEOUT_MS = 3000;
+static constexpr int NETWORK_ADAPTER_RELEASE_WAIT_MS = 2000;
+static constexpr int NODE_ID_QUERY_TIMEOUT_MS = 5000;
+static constexpr int VPN_SHUTDOWN_TIMEOUT_MS = 2000;
+
 class LogDialog;
 class QStateMachine;
 
@@ -184,4 +193,5 @@ private:
     void joinZeroTierNetworkAsync(const QString& networkId);
     void leaveZeroTierNetworkAsync(const QString& networkId);
     void getZeroTierIdAsync();
+    void terminateZeroTierProcess();
 };
