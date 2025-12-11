@@ -1400,7 +1400,7 @@ QString MainWindow::getZeroTierId()
     QString ztExecutable = ztPath + "/zerotier-one_x64.exe";
     
     if (!QFile::exists(ztExecutable)) {
-        Logger::instance().addMessage(tr("获取ZeroTier ID失败: 可执行文件不存在"));
+        Logger::instance().addMessage(tr("获取SD-WAN节点ID失败: 可执行文件不存在"));
         return QString();
     }
     
@@ -1413,16 +1413,16 @@ QString MainWindow::getZeroTierId()
     process.start(ztExecutable, args);
     
     if (!process.waitForFinished(5000)) {
-        Logger::instance().addMessage(tr("获取ZeroTier ID超时"));
+        Logger::instance().addMessage(tr("获取SD-WAN节点ID超时"));
         return QString();
     }
     
     QString output = QString::fromUtf8(process.readAllStandardOutput()).trimmed();
     QString errors = QString::fromUtf8(process.readAllStandardError()).trimmed();
     
-    Logger::instance().addMessage(tr("ZeroTier info 输出: %1").arg(output));
+    Logger::instance().addMessage(tr("SD-WAN节点信息输出: %1").arg(output));
     if (!errors.isEmpty()) {
-        Logger::instance().addMessage(tr("ZeroTier info 错误: %1").arg(errors));
+        Logger::instance().addMessage(tr("SD-WAN节点信息错误: %1").arg(errors));
     }
     
     QStringList lines = output.split('\n');
@@ -1432,12 +1432,12 @@ QString MainWindow::getZeroTierId()
             Logger::instance().addMessage(tr("解析结果: 共 %1 个字段").arg(parts.size()));
             if (parts.size() >= 3) {
                 QString ztId = parts[2];
-                Logger::instance().addMessage(tr("提取到ZeroTier ID: %1").arg(ztId));
+                Logger::instance().addMessage(tr("提取到SD-WAN节点ID: %1").arg(ztId));
                 return ztId;
             }
         }
     }
     
-    Logger::instance().addMessage(tr("未能从输出中解析ZeroTier ID"));
+    Logger::instance().addMessage(tr("未能从输出中解析SD-WAN节点ID"));
     return QString();
 }
