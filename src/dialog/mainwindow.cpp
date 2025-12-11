@@ -1076,9 +1076,9 @@ void MainWindow::on_actionSDWANDiagnostic_triggered()
     
     QMessageBox msgBox(this);
     msgBox.setWindowTitle(tr("SD-WAN诊断"));
-    msgBox.setText(tr("诊断信息已生成，可复制发送给技术支持"));
-    msgBox.setDetailedText(diagnosticInfo);
+    msgBox.setText(diagnosticInfo);
     msgBox.setStandardButtons(QMessageBox::Ok);
+    msgBox.setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
     
     QSpacerItem* horizontalSpacer = new QSpacerItem(500, 0, QSizePolicy::Minimum, QSizePolicy::Expanding);
     QGridLayout* layout = (QGridLayout*)msgBox.layout();
