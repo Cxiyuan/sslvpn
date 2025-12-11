@@ -50,6 +50,7 @@ extern "C" {
 #include <QRegularExpression>
 #include <QSettings>
 #include <QSignalTransition>
+#include <QSpacerItem>
 #include <QStateMachine>
 #include <QThread>
 #include <QUrl>
@@ -1023,6 +1024,67 @@ void MainWindow::on_actionRemoveSelectedProfile_triggered()
 
         reload_settings(); // LCA: remove this feature...
     }
+}
+
+void MainWindow::on_actionSDWANDiagnostic_triggered()
+{
+    if (!zerotierProcess || zerotierProcess->state() != QProcess::Running) {
+        QMessageBox::information(this,
+            tr("SD-WAN诊断"),
+            tr("SD-WAN服务未运行\n\n请先启动SD-WAN服务"));
+        return;
+    }
+    
+    QString diagnosticInfo;
+    diagnosticInfo += tr("=== SD-WAN 诊断信息 ===\n\n");
+    
+    QString ztPath = getZeroTierPath();
+    QString ztExecutable = ztPath + "/zerotier-one_x64.exe";
+    
+    diagnosticInfo += tr("【节点信息】\n");
+    QProcess infoProcess;
+    infoProcess.setWorkingDirectory(ztPath);
+    infoProcess.start(ztExecutable, QStringList() << "-q" << "-D." << "info");
+    if (infoProcess.waitForFinished(5000)) {
+        QString output = QString::fromUtf8(infoProcess.readAllStandardOutput()).trimmed();
+        diagnosticInfo += output + "\n\n";
+    } else {
+        diagnosticInfo += tr("获取超时\n\n");
+    }
+    
+    diagnosticInfo += tr("【网络列表】\n");
+    QProcess listProcess;
+    listProcess.setWorkingDirectory(ztPath);
+    listProcess.start(ztExecutable, QStringList() << "-q" << "-D." << "listnetworks");
+    if (listProcess.waitForFinished(5000)) {
+        QString output = QString::fromUtf8(listProcess.readAllStandardOutput()).trimmed();
+        diagnosticInfo += output + "\n\n";
+    } else {
+        diagnosticInfo += tr("获取超时\n\n");
+    }
+    
+    diagnosticInfo += tr("【对等节点】\n");
+    QProcess peersProcess;
+    peersProcess.setWorkingDirectory(ztPath);
+    peersProcess.start(ztExecutable, QStringList() << "-q" << "-D." << "peers");
+    if (peersProcess.waitForFinished(5000)) {
+        QString output = QString::fromUtf8(peersProcess.readAllStandardOutput()).trimmed();
+        diagnosticInfo += output + "\n\n";
+    } else {
+        diagnosticInfo += tr("获取超时\n\n");
+    }
+    
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle(tr("SD-WAN诊断"));
+    msgBox.setText(tr("诊断信息已生成，可复制发送给技术支持"));
+    msgBox.setDetailedText(diagnosticInfo);
+    msgBox.setStandardButtons(QMessageBox::Ok);
+    
+    QSpacerItem* horizontalSpacer = new QSpacerItem(500, 0, QSizePolicy::Minimum, QSizePolicy::Expanding);
+    QGridLayout* layout = (QGridLayout*)msgBox.layout();
+    layout->addItem(horizontalSpacer, layout->rowCount(), 0, 1, layout->columnCount());
+    
+    msgBox.exec();
 }
 
 void MainWindow::sdwanEnableToggled(bool checked)

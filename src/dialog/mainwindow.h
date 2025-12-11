@@ -106,6 +106,7 @@ public slots:
     void sdwanAutoStartToggled(bool checked);
     void nodeLicenseImport();
     void sdwanStartClicked();
+    void on_actionSDWANDiagnostic_triggered();
 
 signals:
     void stats_changed_sig(QString, QString, QString);

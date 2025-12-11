@@ -464,9 +464,16 @@
     <addaction name="separator"/>
     <addaction name="actionSingleInstanceMode"/>
    </widget>
+   <widget class="QMenu" name="menuDiagnostic">
+    <property name="title">
+     <string>诊断(&amp;D)</string>
+    </property>
+    <addaction name="actionSDWANDiagnostic"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
    <addaction name="menuSettings"/>
+   <addaction name="menuDiagnostic"/>
   </widget>
   <action name="actionQuit">
    <property name="text">
@@ -594,6 +601,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+N</string>
+   </property>
+  </action>
+  <action name="actionSDWANDiagnostic">
+   <property name="text">
+    <string>SD-WAN诊断(&amp;S)</string>
+   </property>
+   <property name="toolTip">
+    <string>显示SD-WAN网络诊断信息</string>
    </property>
   </action>
  </widget>
