@@ -103,9 +103,23 @@ signals:
     void vpn_status_changed_sig(int);
     void timeout(void);
     void readyToShutdown();
+    
+    void sdwanZeroTierStarted();
+    void sdwanZeroTierStartFailed();
+    void sdwanNetworkJoined(QString networkId);
+    void sdwanNetworkJoinFailed(QString networkId);
+    void sdwanNetworkLeft(QString networkId);
+    void sdwanNodeIdRetrieved(QString nodeId);
 
 private slots:
     void createLogDialog();
+    
+    void onZeroTierStarted();
+    void onZeroTierStartFailed();
+    void onNetworkJoined(QString networkId);
+    void onNetworkJoinFailed(QString networkId);
+    void onNetworkLeft(QString networkId);
+    void onNodeIdRetrieved(QString nodeId);
 
 private:
     static QString normalize_byte_size(uint64_t bytes);
@@ -119,8 +133,8 @@ private:
     bool leaveZeroTierNetwork(const QString& networkId);
     bool isZeroTierRunning();
     QString getZeroTierPath();
-    QString getZeroTierId();
     void updateNodeLicenseStatus();
+    void leaveZeroTierNetworkSync(const QString& networkId);
 
     /* we keep the fd instead of a pointer to vpninfo to avoid
      * any multithread issues */
@@ -153,6 +167,21 @@ private:
     bool sdwanConnected;
     QString networkId;
     QString lastJoinedNetworkId;
+    QString pendingNetworkId;
+    
+    enum SdwanState {
+        SDWAN_IDLE,
+        SDWAN_STARTING,
+        SDWAN_LEAVING_OLD_NETWORK,
+        SDWAN_JOINING_NETWORK,
+        SDWAN_GETTING_NODE_ID,
+        SDWAN_CONNECTED
+    };
+    SdwanState sdwanState;
     
     void updateSDWANStatus();
+    void startZeroTierAsync();
+    void joinZeroTierNetworkAsync(const QString& networkId);
+    void leaveZeroTierNetworkAsync(const QString& networkId);
+    void getZeroTierIdAsync();
 };
