@@ -123,14 +123,8 @@ MainWindow::MainWindow(QWidget* parent, const QString profileName)
     ui->iconLabel->setPixmap(OFF_ICON);
     QNetworkProxyFactory::setUseSystemConfiguration(true);
 
-    ui->ipV6LabelText->setVisible(true);
-    ui->ipV6Label->setVisible(true);
-    ui->dnsLabelText->setVisible(true);
-    ui->dnsLabel->setVisible(true);
     ui->cipherCSTPLabelText->setVisible(true);
     ui->cipherCSTPLabel->setVisible(true);
-    ui->cipherDTLSLabelText->setVisible(true);
-    ui->cipherDTLSLabel->setVisible(true);
 
     if (QSystemTrayIcon::isSystemTrayAvailable()) {
         createTrayIcon();
@@ -449,7 +443,6 @@ void MainWindow::statsChanged(QString tx, QString rx, QString dtls)
 {
     ui->downloadLabel->setText(rx);
     ui->uploadLabel->setText(tx);
-    ui->cipherDTLSLabel->setText(dtls);
 }
 
 void MainWindow::updateStats(const struct oc_stats* stats, QString dtls)
@@ -519,10 +512,7 @@ void MainWindow::changeStatus(int val)
         m_trayIcon->setIcon(icon);
 
         this->ui->ipV4Label->setText(ip);
-        this->ui->ipV6Label->setText(ip6);
-        this->ui->dnsLabel->setText(dns);
         this->ui->cipherCSTPLabel->setText(cstp_cipher);
-        this->ui->cipherDTLSLabel->setText(dtls_cipher);
 
         timer->start(UPDATE_TIMER);
 
@@ -568,12 +558,9 @@ void MainWindow::changeStatus(int val)
         cmd_fd = INVALID_SOCKET;
 
         ui->ipV4Label->clear();
-        ui->ipV6Label->clear();
-        ui->dnsLabel->clear();
         ui->uploadLabel->clear();
         ui->downloadLabel->clear();
         ui->cipherCSTPLabel->clear();
-        ui->cipherDTLSLabel->clear();
         Logger::instance().addMessage(QObject::tr("Disconnected"));
 
         ui->serverList->setEnabled(true);
