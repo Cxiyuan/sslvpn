@@ -1476,12 +1476,20 @@ void MainWindow::leaveZeroTierNetworkAsync(const QString& networkId)
             emit sdwanNetworkLeft(networkId);
         });
     
-    QTimer::singleShot(NETWORK_LEAVE_TIMEOUT_MS, this, [leaveProcess, networkId, this]() {
-        if (leaveProcess->state() == QProcess::Running) {
+    QTimer* timeoutTimer = new QTimer(this);
+    timeoutTimer->setSingleShot(true);
+    connect(timeoutTimer, &QTimer::timeout, this, [leaveProcess, networkId, timeoutTimer, this]() {
+        if (leaveProcess && leaveProcess->state() == QProcess::Running) {
             Logger::instance().addMessage(tr("离开 SD-WAN 网络超时: %1").arg(networkId));
             leaveProcess->kill();
         }
+        timeoutTimer->deleteLater();
     });
+    
+    connect(leaveProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+        timeoutTimer, &QTimer::stop);
+    
+    timeoutTimer->start(NETWORK_LEAVE_TIMEOUT_MS);
     
     QStringList arguments;
 #ifdef _WIN32
@@ -1534,13 +1542,21 @@ void MainWindow::joinZeroTierNetworkAsync(const QString& networkId)
             }
         });
     
-    QTimer::singleShot(NETWORK_JOIN_TIMEOUT_MS, this, [joinProcess, networkId, this]() {
-        if (joinProcess->state() == QProcess::Running) {
+    QTimer* timeoutTimer = new QTimer(this);
+    timeoutTimer->setSingleShot(true);
+    connect(timeoutTimer, &QTimer::timeout, this, [joinProcess, networkId, timeoutTimer, this]() {
+        if (joinProcess && joinProcess->state() == QProcess::Running) {
             Logger::instance().addMessage(tr("加入 SD-WAN 网络超时"));
             ui->sdwanStatusLabel->setText(tr("加入网络超时"));
             joinProcess->kill();
         }
+        timeoutTimer->deleteLater();
     });
+    
+    connect(joinProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+        timeoutTimer, &QTimer::stop);
+    
+    timeoutTimer->start(NETWORK_JOIN_TIMEOUT_MS);
     
     QStringList arguments;
 #ifdef _WIN32
@@ -1603,12 +1619,20 @@ void MainWindow::getZeroTierIdAsync()
             emit sdwanNodeIdRetrieved(nodeId);
         });
     
-    QTimer::singleShot(NODE_ID_QUERY_TIMEOUT_MS, this, [process, this]() {
-        if (process->state() == QProcess::Running) {
+    QTimer* timeoutTimer = new QTimer(this);
+    timeoutTimer->setSingleShot(true);
+    connect(timeoutTimer, &QTimer::timeout, this, [process, timeoutTimer, this]() {
+        if (process && process->state() == QProcess::Running) {
             Logger::instance().addMessage(tr("获取SD-WAN节点ID超时"));
             process->kill();
         }
+        timeoutTimer->deleteLater();
     });
+    
+    connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+        timeoutTimer, &QTimer::stop);
+    
+    timeoutTimer->start(NODE_ID_QUERY_TIMEOUT_MS);
     
     QStringList args;
     args << "-q" << "-D." << "info";
