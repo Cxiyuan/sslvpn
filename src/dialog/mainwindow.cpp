@@ -47,6 +47,7 @@ extern "C" {
 #include <QFutureWatcher>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QRegularExpression>
 #include <QSettings>
 #include <QSignalTransition>
 #include <QStateMachine>
@@ -1135,6 +1136,14 @@ void MainWindow::sdwanStartClicked()
         QMessageBox::warning(this,
             qApp->applicationName(),
             tr("请输入网络ID"));
+        return;
+    }
+    
+    QRegularExpression re("^[0-9a-fA-F]{16}$");
+    if (!re.match(networkId).hasMatch()) {
+        QMessageBox::warning(this,
+            qApp->applicationName(),
+            tr("网络ID格式错误\n\n网络ID必须是16位十六进制字符"));
         return;
     }
 
