@@ -1495,9 +1495,6 @@ void MainWindow::leaveZeroTierNetworkAsync(const QString& networkId)
     Logger::instance().addMessage(tr("执行离开命令: cmd.exe /c %1 leave %2").arg(networkBat).arg(networkId));
 }
 
-    return true;
-}
-
 void MainWindow::joinZeroTierNetworkAsync(const QString& networkId)
 {
     if (networkId.isEmpty()) {
