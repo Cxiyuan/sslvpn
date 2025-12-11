@@ -258,14 +258,28 @@
            </widget>
           </item>
           <item row="3" column="1">
-           <widget class="QLabel" name="sdwanStatusLabel">
-            <property name="text">
-             <string>未连接</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-            </property>
-           </widget>
+           <layout class="QHBoxLayout" name="horizontalLayout_sdwan_status">
+            <item>
+             <widget class="QLabel" name="sdwanStatusLabel">
+              <property name="text">
+               <string>未连接</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="sdwanZerotierIdLabel">
+              <property name="text">
+               <string/>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </item>
           <item row="4" column="0" colspan="2">
            <widget class="QPushButton" name="sdwanStartButton">

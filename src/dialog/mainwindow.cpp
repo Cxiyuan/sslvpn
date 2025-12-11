@@ -374,16 +374,18 @@ MainWindow::~MainWindow()
         arguments << "-q" << "terminate";
         
         stopProcess.start(ztExecutable, arguments);
-        if (stopProcess.waitForFinished(3000)) {
+        if (stopProcess.waitForFinished(2000)) {
             Logger::instance().addMessage(tr("SD-WAN 服务已发送终止命令"));
+        } else {
+            stopProcess.kill();
         }
         
         if (zerotierProcess->state() == QProcess::Running) {
             zerotierProcess->terminate();
-            if (!zerotierProcess->waitForFinished(3000)) {
+            if (!zerotierProcess->waitForFinished(2000)) {
                 Logger::instance().addMessage(tr("强制终止 SD-WAN 服务进程"));
                 zerotierProcess->kill();
-                zerotierProcess->waitForFinished(1000);
+                zerotierProcess->waitForFinished(500);
             }
         }
         zerotierProcess->deleteLater();
@@ -803,7 +805,7 @@ void MainWindow::shutdownSDWAN()
     if (!lastJoinedNetworkId.isEmpty()) {
         Logger::instance().addMessage(tr("关闭时离开 SD-WAN 网络: %1").arg(lastJoinedNetworkId));
         leaveZeroTierNetwork(lastJoinedNetworkId);
-        QThread::msleep(1000);
+        QThread::msleep(500);
     }
     
     Logger::instance().addMessage(tr("正在停止 SD-WAN 服务..."));
@@ -819,7 +821,7 @@ void MainWindow::shutdownSDWAN()
     Logger::instance().addMessage(tr("执行终止命令: %1 %2").arg(ztExecutable).arg(arguments.join(" ")));
     
     stopProcess.start(ztExecutable, arguments);
-    if (stopProcess.waitForFinished(3000)) {
+    if (stopProcess.waitForFinished(2000)) {
         int exitCode = stopProcess.exitCode();
         QString output = QString::fromLocal8Bit(stopProcess.readAllStandardOutput());
         QString errors = QString::fromLocal8Bit(stopProcess.readAllStandardError());
@@ -833,16 +835,17 @@ void MainWindow::shutdownSDWAN()
         }
     } else {
         Logger::instance().addMessage(tr("SD-WAN 服务终止命令超时"));
+        stopProcess.kill();
     }
     
-    QThread::msleep(500);
+    QThread::msleep(300);
     
     if (zerotierProcess && zerotierProcess->state() == QProcess::Running) {
         zerotierProcess->terminate();
-        if (!zerotierProcess->waitForFinished(2000)) {
+        if (!zerotierProcess->waitForFinished(1500)) {
             Logger::instance().addMessage(tr("强制终止 SD-WAN 进程"));
             zerotierProcess->kill();
-            zerotierProcess->waitForFinished(1000);
+            zerotierProcess->waitForFinished(500);
         }
     }
     
@@ -1079,8 +1082,10 @@ void MainWindow::sdwanEnableToggled(bool checked)
     
     if (checked) {
         ui->sdwanStatusLabel->setText(tr("未连接"));
+        ui->sdwanZerotierIdLabel->clear();
     } else {
         ui->sdwanStatusLabel->setText(tr("未启用"));
+        ui->sdwanZerotierIdLabel->clear();
         lastJoinedNetworkId.clear();
         sdwanConnected = false;
     }
@@ -1130,6 +1135,11 @@ void MainWindow::sdwanStartClicked()
     } else {
         Logger::instance().addMessage(tr("SD-WAN 已连接到网络: %1").arg(networkId));
         ui->sdwanStatusLabel->setText(tr("已连接"));
+        
+        QString ztId = getZeroTierId();
+        if (!ztId.isEmpty()) {
+            ui->sdwanZerotierIdLabel->setText(tr("  ID: %1").arg(ztId));
+        }
     }
     
     sdwanConnected = true;
@@ -1300,8 +1310,9 @@ bool MainWindow::leaveZeroTierNetwork(const QString& networkId)
     
     Logger::instance().addMessage(tr("执行离开命令: cmd.exe /c %1 leave %2").arg(networkBat).arg(networkId));
     
-    if (!leaveProcess.waitForFinished(10000)) {
+    if (!leaveProcess.waitForFinished(3000)) {
         Logger::instance().addMessage(tr("离开 SD-WAN 网络超时: %1").arg(networkId));
+        leaveProcess.kill();
     } else {
         int exitCode = leaveProcess.exitCode();
         QString output = QString::fromLocal8Bit(leaveProcess.readAllStandardOutput());
@@ -1379,4 +1390,41 @@ bool MainWindow::joinZeroTierNetwork(const QString& networkId)
         ui->sdwanStatusLabel->setText(tr("加入失败"));
         return false;
     }
+}
+
+QString MainWindow::getZeroTierId()
+{
+    QString ztPath = getZeroTierPath();
+    QString ztExecutable = ztPath + "/zerotier-one_x64.exe";
+    
+    if (!QFile::exists(ztExecutable)) {
+        return QString();
+    }
+    
+    QProcess process;
+    process.setWorkingDirectory(ztPath);
+    
+    QStringList args;
+    args << "-q" << "-D." << "info";
+    
+    process.start(ztExecutable, args);
+    
+    if (!process.waitForFinished(5000)) {
+        Logger::instance().addMessage(tr("获取ZeroTier ID超时"));
+        return QString();
+    }
+    
+    QString output = QString::fromUtf8(process.readAllStandardOutput()).trimmed();
+    
+    QStringList lines = output.split('\n');
+    for (const QString& line : lines) {
+        if (line.contains("200 info")) {
+            QStringList parts = line.split(' ', Qt::SkipEmptyParts);
+            if (parts.size() >= 3) {
+                return parts[2];
+            }
+        }
+    }
+    
+    return QString();
 }

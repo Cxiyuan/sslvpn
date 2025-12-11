@@ -119,6 +119,7 @@ private:
     bool leaveZeroTierNetwork(const QString& networkId);
     bool isZeroTierRunning();
     QString getZeroTierPath();
+    QString getZeroTierId();
 
     /* we keep the fd instead of a pointer to vpninfo to avoid
      * any multithread issues */
