@@ -196,7 +196,7 @@ int main(int argc, char* argv[])
 
     const QString profileName{ parser.value(QLatin1String("server")) };
     MainWindow mainWindow(nullptr, profileName);
-    app.setWindowIcon(QIcon(":/images/favicon.ico"));
+    app.setWindowIcon(QIcon(":/avpn.ico"));
     app.setActivationWindow(&mainWindow);
 #ifdef PROJ_PKCS11
     gnutls_pkcs11_set_pin_function(pin_callback, &mainWindow);

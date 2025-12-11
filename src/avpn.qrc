@@ -17,5 +17,6 @@
         <file>images/text-new.png</file>
         <file>Resources/mono_lock.png</file>
         <file>images/favicon.ico</file>
+        <file>avpn.ico</file>
     </qresource>
 </RCC>
