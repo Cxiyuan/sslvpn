@@ -522,6 +522,10 @@ jobs:
         mkdir -p dmg_temp
         cp -R "$APP_NAME" dmg_temp/
         
+        # Ensure all file operations are complete
+        sync
+        sleep 2
+        
         # Create DMG with better settings
         echo "=== Creating DMG ==="
         hdiutil create \
@@ -530,7 +534,17 @@ jobs:
           -ov \
           -format UDZO \
           -imagekey zlib-level=9 \
-          "$DMG_NAME.dmg"
+          "$DMG_NAME.dmg" || {
+            echo "First attempt failed, retrying after cleanup..."
+            sleep 3
+            hdiutil create \
+              -volname "aVPN" \
+              -srcfolder dmg_temp \
+              -ov \
+              -format UDZO \
+              -imagekey zlib-level=9 \
+              "$DMG_NAME.dmg"
+          }
         
         echo "=== DMG created ==="
         ls -lh "$DMG_NAME.dmg"

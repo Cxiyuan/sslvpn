@@ -123,6 +123,15 @@ MainWindow::MainWindow(QWidget* parent, const QString profileName)
     ui->iconLabel->setPixmap(OFF_ICON);
     QNetworkProxyFactory::setUseSystemConfiguration(true);
 
+    ui->ipV6LabelText->setVisible(true);
+    ui->ipV6Label->setVisible(true);
+    ui->dnsLabelText->setVisible(true);
+    ui->dnsLabel->setVisible(true);
+    ui->cipherCSTPLabelText->setVisible(true);
+    ui->cipherCSTPLabel->setVisible(true);
+    ui->cipherDTLSLabelText->setVisible(true);
+    ui->cipherDTLSLabel->setVisible(true);
+
     if (QSystemTrayIcon::isSystemTrayAvailable()) {
         createTrayIcon();
 
