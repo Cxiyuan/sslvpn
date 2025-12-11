@@ -1398,6 +1398,7 @@ QString MainWindow::getZeroTierId()
     QString ztExecutable = ztPath + "/zerotier-one_x64.exe";
     
     if (!QFile::exists(ztExecutable)) {
+        Logger::instance().addMessage(tr("获取ZeroTier ID失败: 可执行文件不存在"));
         return QString();
     }
     
@@ -1415,16 +1416,26 @@ QString MainWindow::getZeroTierId()
     }
     
     QString output = QString::fromUtf8(process.readAllStandardOutput()).trimmed();
+    QString errors = QString::fromUtf8(process.readAllStandardError()).trimmed();
+    
+    Logger::instance().addMessage(tr("ZeroTier info 输出: %1").arg(output));
+    if (!errors.isEmpty()) {
+        Logger::instance().addMessage(tr("ZeroTier info 错误: %1").arg(errors));
+    }
     
     QStringList lines = output.split('\n');
     for (const QString& line : lines) {
         if (line.contains("200 info")) {
             QStringList parts = line.split(' ', Qt::SkipEmptyParts);
+            Logger::instance().addMessage(tr("解析结果: 共 %1 个字段").arg(parts.size()));
             if (parts.size() >= 3) {
-                return parts[2];
+                QString ztId = parts[2];
+                Logger::instance().addMessage(tr("提取到ZeroTier ID: %1").arg(ztId));
+                return ztId;
             }
         }
     }
     
+    Logger::instance().addMessage(tr("未能从输出中解析ZeroTier ID"));
     return QString();
 }
