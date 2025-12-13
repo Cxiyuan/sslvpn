@@ -23,6 +23,7 @@ jobs:
         msystem: MINGW64
         update: false
         release: false
+        path-type: minimal
         install: >-
           mingw-w64-x86_64-gcc
           mingw-w64-x86_64-cmake
@@ -41,12 +42,22 @@ jobs:
           make
           git
     
-    - name: Update MSYS2 keyring
+    - name: Fix MSYS2 keyring and mirrors
       shell: msys2 {0}
       run: |
+        echo "=== Removing problematic clangarm64 repository ==="
+        sed -i '/\[clangarm64\]/,/^$/d' /etc/pacman.conf
+        
+        echo "=== Refresh pacman keys ==="
+        rm -rf /etc/pacman.d/gnupg
         pacman-key --init
         pacman-key --populate msys2
-        pacman -Sy --noconfirm archlinux-keyring msys2-keyring
+        
+        echo "=== Update keyring packages ==="
+        pacman -Sy --noconfirm --needed msys2-keyring
+        
+        echo "=== Verify pacman.conf ==="
+        grep -E '^\[.*\]' /etc/pacman.conf
     
     - name: Build and Install spdlog
       shell: msys2 {0}
