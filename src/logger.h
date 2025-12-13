@@ -5,6 +5,8 @@
 #include <QString>
 #include <QVector>
 
+static constexpr int MAX_LOG_MESSAGES = 20000;
+
 class Logger : public QObject {
     Q_OBJECT
 

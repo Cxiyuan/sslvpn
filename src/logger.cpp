@@ -15,7 +15,7 @@ void Logger::addMessage(const QString& message, const MessageType& messageType, 
         QThread::currentThreadId() };
     m_messages.push_back(tmp);
 
-    if (m_messages.size() >= 20000) { // TODO: magic constant
+    if (m_messages.size() >= MAX_LOG_MESSAGES) {
         m_messages.pop_front();
     }
 

@@ -420,13 +420,12 @@ void MainWindow::vpn_status_changed(int connected, QString& dns, QString& ip, QS
 
 QString MainWindow::normalize_byte_size(uint64_t bytes)
 {
-    const unsigned unit = 1024; // TODO: add support for SI units? (optional)
-    if (bytes < unit) {
+    if (bytes < BYTES_PER_KIBIBYTE) {
         return QString("%1 B").arg(QString::number(bytes));
     }
-    const int exp = static_cast<int>(std::log(bytes) / std::log(unit));
+    const int exp = static_cast<int>(std::log(bytes) / std::log(BYTES_PER_KIBIBYTE));
     static const char suffixChar[] = "KMGTPE";
-    return QString("%1 %2B").arg(QString::number(bytes / std::pow(unit, exp), 'f', 3)).arg(suffixChar[exp - 1]);
+    return QString("%1 %2B").arg(QString::number(bytes / std::pow(BYTES_PER_KIBIBYTE, exp), 'f', 3)).arg(suffixChar[exp - 1]);
 }
 
 void MainWindow::statsChanged(QString tx, QString rx, QString dtls)
@@ -711,10 +710,15 @@ void MainWindow::on_connectClicked()
     /* ss is now deallocated by vpninfo */
     try {
         vpninfo = new VpnInfo(QStringLiteral("Open AnyConnect VPN Agent"), ss, this);
-    } catch (std::exception& ex) {
+    } catch (const std::exception& ex) {
         QMessageBox::information(this,
             qApp->applicationName(),
             tr("初始化VPN时出现问题 ") + "(" + ex.what() + ").");
+        goto fail;
+    } catch (...) {
+        QMessageBox::information(this,
+            qApp->applicationName(),
+            tr("初始化VPN时出现未知异常。"));
         goto fail;
     }
 
@@ -1039,7 +1043,7 @@ void MainWindow::on_actionSDWANDiagnostic_triggered()
     diagnosticInfo += tr("=== SD-WAN 诊断信息 ===\n\n");
     
     QString ztPath = getZeroTierPath();
-    QString ztExecutable = ztPath + "/zerotier-one_x64.exe";
+    QString ztExecutable = ztPath + "/" + getZeroTierExecutableName();
     
     diagnosticInfo += tr("【节点信息】\n");
     QProcess infoProcess;
@@ -1324,6 +1328,15 @@ QString MainWindow::getZeroTierPath()
 #endif
 }
 
+QString MainWindow::getZeroTierExecutableName()
+{
+#ifdef _WIN32
+    return "zerotier-one_x64.exe";
+#else
+    return "zerotier-one";
+#endif
+}
+
 bool MainWindow::isZeroTierRunning()
 {
     if (!zerotierProcess || zerotierProcess->state() != QProcess::Running) {
@@ -1341,7 +1354,7 @@ void MainWindow::startZeroTierAsync()
     }
 
     QString ztPath = getZeroTierPath();
-    QString ztExecutable = ztPath + "/zerotier-one_x64.exe";
+    QString ztExecutable = ztPath + "/" + getZeroTierExecutableName();
     
     Logger::instance().addMessage(tr("SD-WAN 路径: %1").arg(ztPath));
     Logger::instance().addMessage(tr("SD-WAN 可执行文件: %1").arg(ztExecutable));
@@ -1398,20 +1411,18 @@ void MainWindow::startZeroTierAsync()
     
     Logger::instance().addMessage(tr("启动命令: %1 -C .").arg(ztExecutable));
     
-    // 异步检查启动结果（5秒超时）
-    QTimer::singleShot(ZEROTIER_START_TIMEOUT_MS, this, [this, ztExecutable]() {
+    QTimer::singleShot(ZEROTIER_START_TIMEOUT_MS, this, [this]() {
         if (!zerotierProcess || zerotierProcess->state() != QProcess::Running) {
             Logger::instance().addMessage(tr("SD-WAN 服务启动失败"));
             ui->sdwanStatusLabel->setText(tr("启动失败"));
             if (zerotierProcess) {
-                delete zerotierProcess;
+                zerotierProcess->deleteLater();
                 zerotierProcess = nullptr;
             }
             emit sdwanZeroTierStartFailed();
             return;
         }
         
-        // 启动成功，等待初始化（3秒）
         Logger::instance().addMessage(tr("SD-WAN 服务已启动，等待初始化..."));
         ui->sdwanStatusLabel->setText(tr("正在初始化..."));
         
@@ -1467,9 +1478,15 @@ void MainWindow::leaveZeroTierNetworkAsync(const QString& networkId)
     QProcess* leaveProcess = new QProcess(this);
     leaveProcess->setWorkingDirectory(ztPath);
     
+    QTimer* timeoutTimer = new QTimer(this);
+    timeoutTimer->setSingleShot(true);
+    
     connect(leaveProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-        this, [this, leaveProcess, networkId, ztPath](int exitCode, QProcess::ExitStatus exitStatus) {
+        this, [this, leaveProcess, networkId, ztPath, timeoutTimer](int exitCode, QProcess::ExitStatus exitStatus) {
             Q_UNUSED(exitStatus);
+            
+            timeoutTimer->stop();
+            timeoutTimer->deleteLater();
             
             QString output = QString::fromLocal8Bit(leaveProcess->readAllStandardOutput());
             QString errors = QString::fromLocal8Bit(leaveProcess->readAllStandardError());
@@ -1498,8 +1515,6 @@ void MainWindow::leaveZeroTierNetworkAsync(const QString& networkId)
             emit sdwanNetworkLeft(networkId);
         });
     
-    QTimer* timeoutTimer = new QTimer(this);
-    timeoutTimer->setSingleShot(true);
     connect(timeoutTimer, &QTimer::timeout, this, [leaveProcess, networkId, timeoutTimer, this]() {
         if (leaveProcess && leaveProcess->state() == QProcess::Running) {
             Logger::instance().addMessage(tr("离开 SD-WAN 网络超时: %1").arg(networkId));
@@ -1507,9 +1522,6 @@ void MainWindow::leaveZeroTierNetworkAsync(const QString& networkId)
         }
         timeoutTimer->deleteLater();
     });
-    
-    connect(leaveProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-        timeoutTimer, &QTimer::stop);
     
     timeoutTimer->start(NETWORK_LEAVE_TIMEOUT_MS);
     
@@ -1539,9 +1551,15 @@ void MainWindow::joinZeroTierNetworkAsync(const QString& networkId)
     QProcess* joinProcess = new QProcess(this);
     joinProcess->setWorkingDirectory(ztPath);
     
+    QTimer* timeoutTimer = new QTimer(this);
+    timeoutTimer->setSingleShot(true);
+    
     connect(joinProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-        this, [this, joinProcess, networkId](int exitCode, QProcess::ExitStatus exitStatus) {
+        this, [this, joinProcess, networkId, timeoutTimer](int exitCode, QProcess::ExitStatus exitStatus) {
             Q_UNUSED(exitStatus);
+            
+            timeoutTimer->stop();
+            timeoutTimer->deleteLater();
             
             QString output = QString::fromLocal8Bit(joinProcess->readAllStandardOutput());
             QString errors = QString::fromLocal8Bit(joinProcess->readAllStandardError());
@@ -1564,8 +1582,6 @@ void MainWindow::joinZeroTierNetworkAsync(const QString& networkId)
             }
         });
     
-    QTimer* timeoutTimer = new QTimer(this);
-    timeoutTimer->setSingleShot(true);
     connect(timeoutTimer, &QTimer::timeout, this, [joinProcess, networkId, timeoutTimer, this]() {
         if (joinProcess && joinProcess->state() == QProcess::Running) {
             Logger::instance().addMessage(tr("加入 SD-WAN 网络超时"));
@@ -1574,9 +1590,6 @@ void MainWindow::joinZeroTierNetworkAsync(const QString& networkId)
         }
         timeoutTimer->deleteLater();
     });
-    
-    connect(joinProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-        timeoutTimer, &QTimer::stop);
     
     timeoutTimer->start(NETWORK_JOIN_TIMEOUT_MS);
     
@@ -1595,7 +1608,7 @@ void MainWindow::joinZeroTierNetworkAsync(const QString& networkId)
 void MainWindow::getZeroTierIdAsync()
 {
     QString ztPath = getZeroTierPath();
-    QString ztExecutable = ztPath + "/zerotier-one_x64.exe";
+    QString ztExecutable = ztPath + "/" + getZeroTierExecutableName();
     
     if (!QFile::exists(ztExecutable)) {
         Logger::instance().addMessage(tr("获取SD-WAN节点ID失败: 可执行文件不存在"));
@@ -1606,10 +1619,16 @@ void MainWindow::getZeroTierIdAsync()
     QProcess* process = new QProcess(this);
     process->setWorkingDirectory(ztPath);
     
+    QTimer* timeoutTimer = new QTimer(this);
+    timeoutTimer->setSingleShot(true);
+    
     connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-        this, [this, process](int exitCode, QProcess::ExitStatus exitStatus) {
+        this, [this, process, timeoutTimer](int exitCode, QProcess::ExitStatus exitStatus) {
             Q_UNUSED(exitCode);
             Q_UNUSED(exitStatus);
+            
+            timeoutTimer->stop();
+            timeoutTimer->deleteLater();
             
             QString output = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
             QString errors = QString::fromUtf8(process->readAllStandardError()).trimmed();
@@ -1641,8 +1660,6 @@ void MainWindow::getZeroTierIdAsync()
             emit sdwanNodeIdRetrieved(nodeId);
         });
     
-    QTimer* timeoutTimer = new QTimer(this);
-    timeoutTimer->setSingleShot(true);
     connect(timeoutTimer, &QTimer::timeout, this, [process, timeoutTimer, this]() {
         if (process && process->state() == QProcess::Running) {
             Logger::instance().addMessage(tr("获取SD-WAN节点ID超时"));
@@ -1650,9 +1667,6 @@ void MainWindow::getZeroTierIdAsync()
         }
         timeoutTimer->deleteLater();
     });
-    
-    connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-        timeoutTimer, &QTimer::stop);
     
     timeoutTimer->start(NODE_ID_QUERY_TIMEOUT_MS);
     
@@ -1670,7 +1684,7 @@ void MainWindow::terminateZeroTierProcess()
     Logger::instance().addMessage(tr("正在终止 SD-WAN 服务进程..."));
     
     QString ztPath = getZeroTierPath();
-    QString ztExecutable = ztPath + "/zerotier-one_x64.exe";
+    QString ztExecutable = ztPath + "/" + getZeroTierExecutableName();
     
     QProcess stopProcess;
     stopProcess.setWorkingDirectory(ztPath);
@@ -1697,6 +1711,49 @@ void MainWindow::terminateZeroTierProcess()
     zerotierProcess = nullptr;
     
     Logger::instance().addMessage(tr("SD-WAN 服务进程已停止"));
+}
+
+void MainWindow::terminateZeroTierProcessAsync()
+{
+    if (!zerotierProcess) {
+        return;
+    }
+    
+    Logger::instance().addMessage(tr("正在异步终止 SD-WAN 服务进程..."));
+    
+    QString ztPath = getZeroTierPath();
+    QString ztExecutable = ztPath + "/" + getZeroTierExecutableName();
+    
+    QProcess* stopProcess = new QProcess(this);
+    stopProcess->setWorkingDirectory(ztPath);
+    QStringList arguments;
+    arguments << "-q" << "terminate";
+    
+    connect(stopProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+        this, [this, stopProcess](int exitCode, QProcess::ExitStatus exitStatus) {
+            Q_UNUSED(exitCode);
+            Q_UNUSED(exitStatus);
+            
+            stopProcess->deleteLater();
+            Logger::instance().addMessage(tr("SD-WAN 终止命令已完成"));
+            
+            if (zerotierProcess && zerotierProcess->state() == QProcess::Running) {
+                zerotierProcess->terminate();
+                QTimer::singleShot(ZEROTIER_TERMINATE_TIMEOUT_MS, this, [this]() {
+                    if (zerotierProcess && zerotierProcess->state() == QProcess::Running) {
+                        Logger::instance().addMessage(tr("强制终止 SD-WAN 服务进程"));
+                        zerotierProcess->kill();
+                    }
+                });
+            }
+            
+            if (zerotierProcess) {
+                zerotierProcess->deleteLater();
+                zerotierProcess = nullptr;
+            }
+        });
+    
+    stopProcess->start(ztExecutable, arguments);
 }
 
 void MainWindow::updateNodeLicenseStatus()

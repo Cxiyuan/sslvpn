@@ -42,6 +42,7 @@ extern "C" {
 #include <openconnect.h>
 }
 
+static constexpr int BYTES_PER_KIBIBYTE = 1024;
 static constexpr int ZEROTIER_START_TIMEOUT_MS = 5000;
 static constexpr int ZEROTIER_INIT_WAIT_MS = 3000;
 static constexpr int ZEROTIER_TERMINATE_TIMEOUT_MS = 2000;
@@ -143,6 +144,7 @@ private:
     bool leaveZeroTierNetwork(const QString& networkId);
     bool isZeroTierRunning();
     QString getZeroTierPath();
+    QString getZeroTierExecutableName();
     void updateNodeLicenseStatus();
     void leaveZeroTierNetworkSync(const QString& networkId);
 
@@ -195,4 +197,5 @@ private:
     void leaveZeroTierNetworkAsync(const QString& networkId);
     void getZeroTierIdAsync();
     void terminateZeroTierProcess();
+    void terminateZeroTierProcessAsync();
 };
